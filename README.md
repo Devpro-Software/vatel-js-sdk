@@ -1,6 +1,6 @@
 # @vatel/sdk
 
-JavaScript/TypeScript SDK for the Call Agent Builder WebSocket API and REST APIs. Works in Node and browser. Types are included but optional (no need to use TypeScript).
+Connect to Vatel voice agents from JavaScript or TypeScript. Send audio, receive agent replies and transcripts, and handle tool calls. Works in Node.js and the browser.
 
 ## Install
 
@@ -8,61 +8,15 @@ JavaScript/TypeScript SDK for the Call Agent Builder WebSocket API and REST APIs
 npm install @vatel/sdk
 ```
 
-For Node.js WebSocket support (optional):
+In **Node.js** you also need a WebSocket implementation (browsers have one built in):
 
 ```bash
 npm install ws
 ```
 
-## WebSocket session
+## Quick start
 
-Connect with a JWT from `POST /session-token` (see REST client):
-
-```js
-import { Session, Client } from "@vatel/sdk";
-
-const client = new Client({
-  getToken: () => process.env.VATEL_API_KEY,
-});
-const { data } = await client.generateSessionToken("agent-uuid");
-const session = new Session({ token: data.token });
-
-session.on("session_started", (msg) => console.log("Session:", msg.data.id));
-session.on("response_audio", (msg) => { /* play msg.data.audio (base64 PCM) */ });
-session.on("response_text", (msg) => console.log("Text:", msg.data.text));
-session.on("input_audio_transcript", (msg) => console.log("User said:", msg.data.transcript));
-session.on("tool_call", (msg) => {
-  const { toolCallId, toolName, arguments: args } = msg.data;
-  const result = await myToolRunner(toolName, args);
-  session.sendToolCallOutput(toolCallId, JSON.stringify(result));
-});
-
-await session.connect();
-session.sendInputAudio(base64PcmChunk);
-```
-
-In Node, pass a WebSocket constructor so the SDK doesn’t rely on a global:
-
-```js
-import { Session } from "@vatel/sdk";
-import WebSocket from "ws";
-
-const session = new Session({
-  token: process.env.VATEL_TOKEN,
-  createWebSocket: (url) => new WebSocket(url),
-});
-await session.connect();
-```
-
-Session options:
-
-- `token` (required): JWT from `generateSessionToken(agentId)`.
-- `baseUrl`: default `wss://api.vatel.ai`. Use `https://…` or `wss://…`; the SDK switches to `wss` when needed.
-- `createWebSocket`: optional; use in Node with `ws` to provide a WebSocket implementation.
-
-## REST client
-
-Uses the organization API key as Bearer token.
+**1. Get a session token** using your API key and agent ID:
 
 ```js
 import { Client } from "@vatel/sdk";
@@ -71,23 +25,88 @@ const client = new Client({
   getToken: () => process.env.VATEL_API_KEY,
 });
 
-const { data: tokenData } = await client.generateSessionToken("agent-uuid");
+const { data } = await client.generateSessionToken("your-agent-id");
+if (!data?.token) throw new Error("Failed to get token");
+```
+
+**2. Connect a session** and listen for events:
+
+```js
+import { Session } from "@vatel/sdk";
+
+const session = new Session({ token: data.token });
+
+session.on("session_started", () => console.log("Connected"));
+session.on("response_text", (msg) => console.log("Agent:", msg.data.text));
+session.on("response_audio", (msg) => {
+  // msg.data.audio is base64-encoded PCM (24 kHz, mono, 16-bit)
+  // Decode and play with your audio stack
+});
+session.on("input_audio_transcript", (msg) => console.log("You said:", msg.data.transcript));
+
+await session.connect();
+```
+
+**3. Send microphone (or other) audio** as base64 PCM chunks:
+
+```js
+session.sendInputAudio(base64PcmChunk);
+```
+
+## Node.js: WebSocket setup
+
+Node doesn’t include a WebSocket API. Install `ws` and pass a WebSocket factory when creating the session:
+
+```js
+import { Session } from "@vatel/sdk";
+import WebSocket from "ws";
+
+const session = new Session({
+  token: data.token,
+  createWebSocket: (url) => new WebSocket(url),
+});
+await session.connect();
+```
+
+## Session options
+
+| Option | Description |
+|--------|-------------|
+| `token` | **Required.** JWT from `client.generateSessionToken(agentId)`. |
+| `baseUrl` | API base URL. Default: `https://api.vatel.ai`. Use `https://…` or `wss://…`; the SDK uses the right protocol. |
+| `createWebSocket` | **Node only.** Function that takes a URL and returns a WebSocket instance. Use with the `ws` package. |
+
+## REST client
+
+The `Client` uses your organization API key as a Bearer token. Use it to get session tokens and list agents.
+
+```js
+import { Client } from "@vatel/sdk";
+
+const client = new Client({
+  getToken: () => process.env.VATEL_API_KEY,
+});
+
+const { data: tokenData } = await client.generateSessionToken("agent-id");
 const { data: agents } = await client.listAgents();
 ```
 
-## Types (optional)
+## Tool calls
 
-TypeScript users get full typings from the package. No separate `@types` or TS dependency is required for JS-only usage.
+When the agent invokes a tool, handle it and send the result back:
+
+```js
+session.on("tool_call", async (msg) => {
+  const { toolCallId, toolName, arguments: args } = msg.data;
+  const result = await yourToolHandler(toolName, args);
+  session.sendToolCallOutput(toolCallId, JSON.stringify(result));
+});
+```
+
+## TypeScript
+
+The package includes type definitions. No extra `@types` install; use TypeScript as usual and import types when needed:
 
 ```ts
-import type { ServerMessage, ResponseAudioMessage } from "@vatel/sdk";
+import type { ResponseAudioMessage, SessionStartedMessage } from "@vatel/sdk";
 ```
-
-## Build
-
-```bash
-npm install
-npm run build
-```
-
-Output: `dist/` (ESM, CJS, and `.d.ts`).
