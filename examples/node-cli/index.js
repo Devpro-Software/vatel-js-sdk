@@ -60,10 +60,12 @@ async function main() {
     ...(baseUrl && { baseUrl }),
   });
 
-  const speaker = createSpeaker();
   session.on("response_audio", (msg) => {
     const buf = Buffer.from(msg.data.audio, "base64");
-    if (!speaker.destroyed) speaker.write(buf);
+    const speaker = createSpeaker();
+    speaker.on("error", () => {});
+    speaker.write(buf);
+    speaker.end();
   });
   session.on("response_text", (msg) => {
     process.stdout.write("\rAgent: " + msg.data.text + "\n> ");
@@ -86,7 +88,6 @@ async function main() {
   process.on("SIGINT", () => {
     console.log("\nStopping...");
     micInstance.stop();
-    speaker.end();
     session.close();
     process.exit(0);
   });
