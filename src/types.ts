@@ -129,11 +129,19 @@ export interface SessionOptions {
 
 export type AgentStatus = "active" | "inactive";
 
-export type TTSStrategy = "elevenlabs" | "openai" | "cartesia";
+export type TTSStrategy =
+  | "elevenlabs"
+  | "openai"
+  | "cartesia"
+  | "hume"
+  | "minimax"
+  | "fish";
 
 export type TimeoutAction = "end_call" | "transfer_call";
 
 export interface VoiceSettings {
+  id?: string;
+  provider?: TTSStrategy;
   speed?: number;
   stability?: number;
   similarity_boost?: number;
@@ -154,13 +162,21 @@ export interface NoiseCancelSettings {
 }
 
 export interface TimeoutSettings {
+  default_timeout?: number;
   defaultTimeout?: number;
+  timeout_action?: TimeoutAction;
   timeoutAction?: TimeoutAction;
+  transfer_number?: string;
   transferNumber?: string;
+  transfer_message?: string;
   transferMessage?: string;
+  silence_counter?: number;
   silenceCounter?: number;
+  silence_timeout_action?: TimeoutAction;
   silenceTimeoutAction?: TimeoutAction;
+  silence_transfer_number?: string;
   silenceTransferNumber?: string;
+  silence_transfer_message?: string;
   silenceTransferMessage?: string;
 }
 
@@ -169,9 +185,11 @@ export interface Agent {
   phone_number_id?: string;
   name?: string;
   llm?: string;
+  fallback_llm?: string;
   status?: AgentStatus;
   prompt?: string;
   first_message?: string;
+  first_message_interruption_time?: number;
   default_language?: string;
   summarize_calls?: boolean;
   tts_strategy?: TTSStrategy;
@@ -183,6 +201,201 @@ export interface Agent {
   voice_settings?: VoiceSettings;
   timeout_settings?: TimeoutSettings;
   keyterms?: string[];
+}
+
+export interface AgentCreateInput {
+  phone_number_id?: string | null;
+  name: string;
+  llm?: string;
+  fallback_llm?: string;
+  status?: AgentStatus;
+  prompt?: string;
+  first_message?: string;
+  first_message_interruption_time?: number;
+  default_language?: string;
+  summarize_calls?: boolean;
+  noise_cancel_settings?: NoiseCancelSettings;
+  vad_settings?: VadSettings;
+  enable_first_message_outbound?: boolean;
+  timeout_settings?: TimeoutSettings;
+  keyterms?: string[];
+  voice_settings?: VoiceSettings;
+}
+
+export interface AgentUpdateInput {
+  phone_number_id?: string | null;
+  name?: string;
+  llm?: string;
+  fallback_llm?: string;
+  status?: AgentStatus;
+  prompt?: string;
+  first_message?: string;
+  first_message_interruption_time?: number;
+  default_language?: string;
+  summarize_calls?: boolean;
+  noise_cancel_settings?: NoiseCancelSettings;
+  vad_settings?: VadSettings;
+  enable_first_message_outbound?: boolean;
+  timeout_settings?: TimeoutSettings;
+  keyterms?: string[];
+  voice_settings?: VoiceSettings;
+}
+
+export interface Organization {
+  id?: string;
+  name?: string;
+  created_at?: string;
+}
+
+export interface LLMStringsResponse {
+  llms: string[];
+}
+
+export interface VoiceCatalogEntry {
+  id: string;
+  name: string;
+  description?: string | null;
+  provider: TTSStrategy;
+  languages: string[];
+  preview_url?: string | null;
+  featured?: boolean;
+}
+
+export interface VoicesListResponse {
+  voices: VoiceCatalogEntry[];
+}
+
+export interface GraphVersion {
+  id?: string;
+  agent_id?: string;
+  created_at?: string;
+  published_at?: string | null;
+  tag?: string;
+}
+
+export type GraphNode = Record<string, unknown>;
+
+export interface GraphVersionDetail {
+  version: GraphVersion;
+  nodes: GraphNode[];
+}
+
+export interface DialAgentResponse {
+  success: boolean;
+}
+
+export interface TwilioPhoneNumber {
+  id?: string;
+  phone_number?: string;
+  phone_sid?: string;
+  label?: string;
+  account_sid?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface TwilioPhoneNumberImportInput {
+  label?: string;
+  phone_number: string;
+  account_sid: string;
+  auth_token: string;
+}
+
+export interface TwilioPhoneNumberLabelPatchInput {
+  label: string;
+}
+
+export type CallerTransformType =
+  | "add_prefix"
+  | "add_suffix"
+  | "replace"
+  | "strip_digits_end"
+  | "strip_digits_start";
+
+export type SIPTrunkAuthType = "digest" | "acl" | "none";
+
+export type RegistrationStatus =
+  | "not_registered"
+  | "pending"
+  | "registered"
+  | "failed"
+  | "auth_failed";
+
+export interface SipTrunkCallerIDTransform {
+  type: CallerTransformType;
+  value?: string;
+  value2?: string;
+  number?: number;
+}
+
+export type SipTrunkPbx = "3cx" | "yeastar" | "webex" | "generic";
+
+export interface SipTrunk {
+  id?: string;
+  created_at?: string;
+  pbx?: SipTrunkPbx;
+  caller_id_transforms?: SipTrunkCallerIDTransform[];
+  inbound_host?: string;
+  inbound_auth_type?: SIPTrunkAuthType;
+  inbound_sip_username?: string;
+  inbound_registration_status?: RegistrationStatus;
+  outbound_host?: string;
+  outbound_sip_username?: string;
+  register?: boolean;
+  outbound_registration_status?: RegistrationStatus;
+  remain_in_dialog?: boolean;
+}
+
+export interface SipTrunkCreateInput {
+  pbx: SipTrunkPbx;
+  caller_id_transforms?: SipTrunkCallerIDTransform[];
+  inbound_host?: string | null;
+  inbound_auth_type?: SIPTrunkAuthType | null;
+  inbound_sip_username?: string | null;
+  inbound_sip_password?: string | null;
+  outbound_host?: string | null;
+  outbound_sip_username?: string | null;
+  outbound_sip_password?: string | null;
+  register?: boolean | null;
+  remain_in_dialog?: boolean | null;
+}
+
+export interface SipTrunkUpdateInput {
+  pbx?: SipTrunkPbx;
+  caller_id_transforms?: SipTrunkCallerIDTransform[] | null;
+  inbound_host?: string | null;
+  inbound_auth_type?: SIPTrunkAuthType | null;
+  inbound_sip_username?: string | null;
+  inbound_sip_password?: string | null;
+  outbound_host?: string | null;
+  outbound_sip_username?: string | null;
+  outbound_sip_password?: string | null;
+  register?: boolean | null;
+  remain_in_dialog?: boolean | null;
+}
+
+export interface SipTrunkAgentAssignment {
+  id?: string;
+  agent_id?: string;
+  sip_trunk_id?: string;
+  number?: string;
+  alternate_number?: string;
+  created_at?: string;
+}
+
+export interface SipTrunkAgentAssignmentCreateInput {
+  agent_id: string;
+  number?: string;
+  alternate_number?: string;
+}
+
+export interface SipTrunkAgentAssignmentPatchInput {
+  number?: string | null;
+  alternate_number?: string | null;
+}
+
+export interface ErrorResponse {
+  error: string;
 }
 
 export interface SessionTokenResponse {
