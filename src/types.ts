@@ -398,6 +398,15 @@ export interface ErrorResponse {
   error: string;
 }
 
+export type SessionTokenTransport = "WebSocket" | "WebRTC";
+
+export interface GenerateSessionTokenOptions {
+  transport?: SessionTokenTransport;
+  identity?: string;
+}
+
 export interface SessionTokenResponse {
   token: string;
+  room?: string;
+  url?: string;
 }

@@ -1,5 +1,15 @@
 export { Session } from "./session.js";
 export { Client } from "./rest.js";
+export {
+  WebRTCSession,
+  ConnectionState,
+} from "./webrtc-session.js";
+export type {
+  RemoteAudioCallback,
+  RoomOptions,
+  WebRTCSessionCredentials,
+  WebRTCSessionOptions,
+} from "./webrtc-session.js";
 export type { ClientOptions } from "./rest.js";
 export type {
   ServerMessage,
@@ -36,7 +46,9 @@ export type {
   VadSettings,
   NoiseCancelSettings,
   TimeoutSettings,
+  GenerateSessionTokenOptions,
   SessionTokenResponse,
+  SessionTokenTransport,
   Organization,
   LLMStringsResponse,
   VoiceCatalogEntry,

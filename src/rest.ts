@@ -7,6 +7,7 @@ import type {
   GraphVersionDetail,
   LLMStringsResponse,
   Organization,
+  GenerateSessionTokenOptions,
   SessionTokenResponse,
   SipTrunk,
   SipTrunkAgentAssignment,
@@ -271,9 +272,16 @@ export class Client {
   }
 
   async generateSessionToken(
-    agentId: string
+    agentId: string,
+    options?: GenerateSessionTokenOptions
   ): Promise<{ data?: SessionTokenResponse; status: number }> {
-    const path = `/v1/session-token?agentId=${encodeURIComponent(agentId)}`;
-    return this.post<SessionTokenResponse>(path);
+    const q = new URLSearchParams({ agentId });
+    if (options?.transport != null) {
+      q.set("transport", options.transport);
+    }
+    if (options?.identity != null && options.identity !== "") {
+      q.set("identity", options.identity);
+    }
+    return this.post<SessionTokenResponse>(`/v1/session-token?${q}`);
   }
 }
