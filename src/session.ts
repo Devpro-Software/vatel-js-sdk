@@ -4,20 +4,13 @@ import type {
   InputAudioMessage,
   ToolCallOutputMessage,
 } from "./types.js";
+import { parseServerMessage } from "./parse-server-message.js";
 
 type MessageHandler = (message: ServerMessage) => void;
 type TypedMessageHandler<T extends ServerMessage> = (message: T) => void;
 
 const DEFAULT_BASE_URL = "wss://api.vatel.ai";
 const CONNECTION_PATH = "/v1/connection";
-
-function parseServerMessage(raw: string): ServerMessage {
-  const parsed = JSON.parse(raw) as ServerMessage;
-  if (typeof parsed?.type !== "string") {
-    throw new Error("Invalid server message: missing type");
-  }
-  return parsed;
-}
 
 export class Session {
   private ws: WebSocket | null = null;

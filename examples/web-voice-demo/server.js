@@ -1,4 +1,4 @@
-import { Client } from "@vatel/sdk";
+import { Client, TRANSPORT_WEBRTC } from "@vatel/sdk";
 import dotenv from "dotenv";
 import express from "express";
 import path from "path";
@@ -28,38 +28,37 @@ app.post("/api/session-token", async (req, res) => {
     typeof fromBody === "string" && fromBody.trim()
       ? fromBody.trim()
       : process.env.VATEL_API_KEY;
-  const agentId = req.body?.agentId ?? process.env.VATEL_AGENT_ID;
+  const agentRaw =
+    req.body?.agent_id ?? req.body?.agentId ?? process.env.VATEL_AGENT_ID;
   if (!apiKey) {
     res.status(400).json({
       error: "API key required: paste it in the form or set VATEL_API_KEY",
     });
     return;
   }
-  if (!agentId || typeof agentId !== "string") {
-    res.status(400).json({ error: "agentId is required (body or VATEL_AGENT_ID)" });
+  if (!agentRaw || typeof agentRaw !== "string") {
+    res.status(400).json({
+      error: "agent_id is required (JSON body or VATEL_AGENT_ID)",
+    });
     return;
   }
 
+  const agentId = agentRaw.trim();
   const client = new Client({
     baseUrl: API_BASE,
     getToken: () => apiKey,
   });
 
   const transport = req.body?.transport;
-  const identityRaw = req.body?.identity;
   const tokenOpts =
-    transport === "WebRTC"
-      ? {
-          transport: "WebRTC",
-          ...(typeof identityRaw === "string" && identityRaw.trim()
-            ? { identity: identityRaw.trim() }
-            : {}),
-        }
+    typeof transport === "string" &&
+    transport.toLowerCase() === TRANSPORT_WEBRTC
+      ? { transport: TRANSPORT_WEBRTC }
       : undefined;
 
   let tokenRes;
   try {
-    tokenRes = await client.generateSessionToken(agentId.trim(), tokenOpts);
+    tokenRes = await client.generateSessionToken(agentId, tokenOpts);
   } catch (err) {
     res.status(502).json({
       error: "Failed to reach Vatel API",
@@ -88,6 +87,9 @@ app.post("/api/session-token", async (req, res) => {
   }
   if (typeof data?.room === "string") {
     payload.room = data.room;
+  }
+  if (typeof data?.identity === "string") {
+    payload.identity = data.identity;
   }
   res.json(payload);
 });

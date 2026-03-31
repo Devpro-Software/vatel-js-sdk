@@ -95,12 +95,10 @@
   <div id="log"></div>
 
   <div class="section">
-    <h2>WebRTC session (LiveKit)</h2>
+    <h2>WebRTC session</h2>
     <p class="hint">
-      Uses <code>WebRTCSession</code> from <code>@vatel/sdk</code> with <code>liveKitUrl: ws://localhost:7880</code> (demo override). Requires WebRTC session tokens from the API; run a LiveKit server on port 7880 locally. Same API key and agent as above; optional LiveKit identity below.
+      Uses <code>WebRTCSession</code> from <code>@vatel/sdk</code> with <code>signalingUrl: ws://localhost:7880</code> (demo override). Requires WebRTC session tokens from the API; run a compatible signaling server on port 7880 locally. The API assigns the participant identity.
     </p>
-    <label for="webrtcIdentity">LiveKit identity (optional)</label>
-    <input id="webrtcIdentity" type="text" placeholder="Omit to let the server assign" autocomplete="off" />
     <div class="row">
       <button type="button" id="btnWebrtcConnect" class="primary">Connect WebRTC</button>
       <button type="button" id="btnWebrtcDisconnect" disabled>Disconnect WebRTC</button>

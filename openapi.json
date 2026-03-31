@@ -1162,45 +1162,26 @@
       "post": {
         "tags": ["session"],
         "summary": "Generate session token",
-        "description": "Returns a short-lived token for the given agent. Default (`transport` omitted or `WebSocket`) is a JWT for the embed / WebSocket connection flow. With `transport=WebRTC`, returns a LiveKit access JWT plus server-chosen `room` and `url` (LiveKit WebSocket URL) when `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, and `LIVEKIT_WS_URL` are set on the server. The WebRTC token allows subscribe and microphone publish only (no camera). Do not send a `room` query parameter; it is rejected. Values are matched case-insensitively. Agent must belong to the organization.",
+        "description": "Returns a short-lived token for the given agent. Request body allows only `agent_id` and optional `transport` (unknown JSON fields are rejected). Default (`transport` omitted or `WebSocket`) is a JWT for the embed / WebSocket connection flow. With `transport` `WebRTC`, returns a LiveKit access JWT plus server-assigned `room`, server-generated `identity` (LiveKit participant id), and `url` (LiveKit WebSocket URL) when `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, and `LIVEKIT_WS_URL` are set. The WebRTC JWT includes participant attribute `agent_id`. The WebRTC token allows subscribe and microphone publish only (no camera). `transport` is matched case-insensitively. Agent must belong to the organization.",
         "operationId": "generateSessionToken",
-        "parameters": [
-          {
-            "name": "agentId",
-            "in": "query",
-            "required": true,
-            "description": "Agent to mint a token for",
-            "schema": { "type": "string", "format": "uuid" }
-          },
-          {
-            "name": "transport",
-            "in": "query",
-            "required": false,
-            "description": "Session transport: `WebSocket` (default) for the platform WebSocket session JWT, or `WebRTC` for a LiveKit room join token. Matched case-insensitively.",
-            "schema": {
-              "type": "string",
-              "enum": ["WebSocket", "WebRTC"],
-              "default": "WebSocket"
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/GenerateSessionTokenRequest" }
             }
-          },
-          {
-            "name": "identity",
-            "in": "query",
-            "required": false,
-            "description": "When `transport=WebRTC`, LiveKit participant identity. If omitted, the server generates one. Allowed characters: letters, digits, underscore, hyphen; length 1–128.",
-            "schema": { "type": "string", "minLength": 1, "maxLength": 128 }
           }
-        ],
+        },
         "responses": {
           "200": {
-            "description": "Token; for `WebRTC`, `room` and `url` are included.",
+            "description": "Token; for `WebRTC`, `room`, `identity`, and `url` are included (room and identity are server-assigned).",
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/SessionTokenResponse" }
               }
             }
           },
-          "400": { "description": "Invalid or missing query parameters (e.g. agentId, transport, identity, or client-supplied room for WebRTC)" },
+          "400": { "description": "Invalid JSON body (including unknown properties), missing or invalid `agent_id`, or invalid `transport`" },
           "401": { "description": "Unauthorized" },
           "403": {
             "description": "Agent belongs to another organization",
@@ -1707,19 +1688,39 @@
           }
         }
       },
+      "GenerateSessionTokenRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["agent_id"],
+        "properties": {
+          "agent_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Agent to mint a session or LiveKit token for."
+          },
+          "transport": {
+            "type": "string",
+            "description": "Session transport. Omitted or `WebSocket` / `websocket` / `embed`: platform WebSocket session JWT. `WebRTC` / `webrtc`: LiveKit room join token. Case-insensitive."
+          }
+        }
+      },
       "SessionTokenResponse": {
         "type": "object",
-        "description": "Session credential. For `WebSocket` (default), only `token` is set (JWT for the WebSocket session). For `WebRTC`, `token` is a LiveKit access JWT (microphone publish and subscribe only) and `room` plus `url` indicate where to connect.",
+        "description": "Session credential. For `WebSocket` (default), only `token` is set (JWT for the WebSocket session). For `WebRTC`, `token` is a LiveKit access JWT (microphone publish and subscribe only) with participant attribute `agent_id`; `room`, `identity`, and `url` are server-assigned for the LiveKit session.",
         "required": ["token"],
         "properties": {
           "token": { "type": "string", "description": "Time-limited bearer token; treat as secret." },
           "room": {
             "type": "string",
-            "description": "Server-assigned LiveKit room name (present when `transport=WebRTC`); clients must not choose the room."
+            "description": "Server-assigned LiveKit room name (present when `transport` is WebRTC)."
+          },
+          "identity": {
+            "type": "string",
+            "description": "Server-generated LiveKit participant identity (present when `transport` is WebRTC); use when connecting with the LiveKit client SDK."
           },
           "url": {
             "type": "string",
-            "description": "LiveKit server WebSocket URL (present when `transport=WebRTC`); use with the LiveKit client SDK."
+            "description": "LiveKit server WebSocket URL (present when `transport` is WebRTC); use with the LiveKit client SDK."
           }
         }
       },

@@ -1,4 +1,10 @@
-import { Client, ConnectionState, Session, WebRTCSession } from "@vatel/sdk";
+import {
+  ConnectionState,
+  TRANSPORT_WEBRTC,
+  WEBRTC_MESSAGES_TOPIC,
+  Session,
+  WebRTCSession,
+} from "@vatel/sdk";
 import { RoomEvent } from "livekit-client";
 
 const SAMPLE_RATE = 24000;
@@ -166,7 +172,7 @@ async function connect() {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      agentId,
+      agent_id: agentId,
       ...(apiKey ? { apiKey } : {}),
     }),
   });
@@ -280,11 +286,10 @@ fetch("/api/config")
   })
   .catch(() => {});
 
-const DEMO_LIVEKIT_URL = "ws://localhost:7880";
+const DEMO_SIGNALING_URL = "ws://localhost:7880";
 
 const webrtcLogEl = document.getElementById("webrtcLog");
 const webrtcStatusEl = document.getElementById("webrtcStatus");
-const webrtcIdentityInput = document.getElementById("webrtcIdentity");
 const webrtcAudioHost = document.getElementById("webrtcAudioHost");
 const btnWebrtcConnect = document.getElementById("btnWebrtcConnect");
 const btnWebrtcDisconnect = document.getElementById("btnWebrtcDisconnect");
@@ -350,17 +355,19 @@ async function connectWebrtc() {
     return;
   }
 
-  wlog("POST /api/session-token transport=WebRTC …");
+  wlog(
+    "POST /api/session-token { agent_id, transport: " +
+      TRANSPORT_WEBRTC +
+      " } …"
+  );
   const apiKey = apiKeyInput.value.trim();
-  const identity = webrtcIdentityInput.value.trim();
   const res = await fetch("/api/session-token", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      agentId,
-      transport: "WebRTC",
+      agent_id: agentId,
+      transport: TRANSPORT_WEBRTC,
       ...(apiKey ? { apiKey } : {}),
-      ...(identity ? { identity } : {}),
     }),
   });
   const body = await res.json().catch(() => ({}));
@@ -382,23 +389,23 @@ async function connectWebrtc() {
     typeof body.url === "string" ? body.url.replace(/\?.*/, "?…") : "(none)";
   if (!body.url || typeof body.url !== "string") {
     wlog(
-      "note: API returned no url; LiveKit client will use demo host " + DEMO_LIVEKIT_URL
+      "note: API returned no url; using demo signaling host " + DEMO_SIGNALING_URL
     );
   }
 
   wlog(
-    "credentials: room=" + (body.room ?? "(none)") + " api url=" + tokenUrl + " connect host=" + DEMO_LIVEKIT_URL
+    "credentials: room=" +
+      (body.room ?? "(none)") +
+      " identity=" +
+      (typeof body.identity === "string" ? body.identity : "(none)") +
+      " api url=" +
+      tokenUrl +
+      " connect host=" +
+      DEMO_SIGNALING_URL
   );
 
-  const client = new Client({
-    baseUrl: typeof body.apiBase === "string" ? body.apiBase : configApiBase,
-    getToken: () => "",
-  });
-
   webrtcAudioHost.replaceChildren();
-  webrtcSession = new WebRTCSession(client, {
-    agentId,
-    liveKitUrl: DEMO_LIVEKIT_URL,
+  webrtcSession = new WebRTCSession({
     remoteAudioContainer: webrtcAudioHost,
   });
 
@@ -413,21 +420,63 @@ async function connectWebrtc() {
     );
   });
 
+  wlog(
+    "WebRTC text topic " +
+      WEBRTC_MESSAGES_TOPIC +
+      ": session events only (agent audio via remote tracks, not response_audio)"
+  );
+
+  webrtcSession.on("session_started", (msg) => {
+    wlog("[webrtc] session_started id=" + (msg.data && msg.data.id));
+  });
+  webrtcSession.on("response_text", (msg) => {
+    wlog("[webrtc] agent: " + (msg.data && msg.data.text));
+  });
+  webrtcSession.on("input_audio_transcript", (msg) => {
+    wlog("[webrtc] you: " + (msg.data && msg.data.transcript));
+  });
+  webrtcSession.on("speech_started", (msg) => {
+    wlog("[webrtc] speech_started emulated=" + (msg.data && msg.data.emulated));
+  });
+  webrtcSession.on("speech_stopped", () => {
+    wlog("[webrtc] speech_stopped");
+  });
+  webrtcSession.on("interruption", () => {
+    wlog("[webrtc] interruption");
+  });
+  webrtcSession.on("tool_call", (msg) => {
+    wlog("[webrtc] tool_call " + (msg.data && msg.data.toolName));
+    const rk = webrtcSession && webrtcSession.webrtcRoom;
+    if (rk && msg.data && msg.data.toolCallId) {
+      const payload = JSON.stringify({
+        type: "tool_call_output",
+        data: { toolCallId: msg.data.toolCallId, output: "{}" },
+      });
+      rk.localParticipant
+        .sendText(payload, { topic: WEBRTC_MESSAGES_TOPIC })
+        .catch((e) => wlog("[webrtc] sendText tool output: " + e));
+    }
+  });
+  webrtcSession.on("session_ended", () => {
+    wlog("[webrtc] session_ended");
+  });
+
   try {
-    wlog("WebRTCSession.connect(pre-minted credentials) …");
+    wlog("WebRTCSession.connect() …");
     const { room: joinedRoom } = await webrtcSession.connect({
       token: body.token,
-      url: typeof body.url === "string" ? body.url : DEMO_LIVEKIT_URL,
+      url: typeof body.url === "string" ? body.url : undefined,
       room: body.room,
+      signalingUrl: DEMO_SIGNALING_URL,
     });
     wlog("WebRTCSession connected, room name: " + joinedRoom);
     wlog("connectionState=" + webrtcSession.connectionState);
 
-    const rk = webrtcSession.liveKitRoom;
+    const rk = webrtcSession.webrtcRoom;
     if (rk) {
       wireWebrtcRoomDebug(rk);
     } else {
-      wlog("warn: liveKitRoom is null after connect");
+      wlog("warn: webrtcRoom is null after connect");
     }
 
     setWebrtcUi(true);
@@ -462,12 +511,12 @@ btnWebrtcDisconnect.addEventListener("click", () =>
 );
 btnWebrtcStartAudio.addEventListener("click", async () => {
   if (!webrtcSession) return;
-  wlog("startRemoteAudio() …");
+  wlog("start() …");
   try {
-    await webrtcSession.startRemoteAudio();
-    wlog("startRemoteAudio ok");
+    await webrtcSession.start();
+    wlog("start ok");
   } catch (e) {
-    wlog("startRemoteAudio error: " + (e instanceof Error ? e.message : String(e)));
+    wlog("start error: " + (e instanceof Error ? e.message : String(e)));
   }
 });
 btnWebrtcMic.addEventListener("click", async () => {

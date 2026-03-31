@@ -1,18 +1,22 @@
 export { Session } from "./session.js";
 export { Client } from "./rest.js";
 export {
+  WEBRTC_MESSAGES_TOPIC,
+  DEFAULT_WEBRTC_SIGNALING_URL,
   WebRTCSession,
   ConnectionState,
 } from "./webrtc-session.js";
 export type {
   RemoteAudioCallback,
-  RoomOptions,
   WebRTCSessionCredentials,
   WebRTCSessionOptions,
 } from "./webrtc-session.js";
 export type { ClientOptions } from "./rest.js";
+export { TRANSPORT_WEBRTC, TRANSPORT_WEBSOCKET } from "./types.js";
 export type {
   ServerMessage,
+  WebRTCServerMessage,
+  WebRTCServerMessageType,
   ServerMessageType,
   ClientMessage,
   SessionOptions,

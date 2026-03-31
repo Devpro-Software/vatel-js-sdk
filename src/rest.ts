@@ -275,13 +275,12 @@ export class Client {
     agentId: string,
     options?: GenerateSessionTokenOptions
   ): Promise<{ data?: SessionTokenResponse; status: number }> {
-    const q = new URLSearchParams({ agentId });
+    const body: { agent_id: string; transport?: string } = {
+      agent_id: agentId,
+    };
     if (options?.transport != null) {
-      q.set("transport", options.transport);
+      body.transport = options.transport;
     }
-    if (options?.identity != null && options.identity !== "") {
-      q.set("identity", options.identity);
-    }
-    return this.post<SessionTokenResponse>(`/v1/session-token?${q}`);
+    return this.post<SessionTokenResponse>("/v1/session-token", body);
   }
 }

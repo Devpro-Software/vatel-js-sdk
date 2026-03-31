@@ -21,6 +21,7 @@ export interface SessionStartedMessage {
 export interface ResponseAudioData {
   turn_id: string;
   audio: string;
+  is_final?: boolean;
 }
 
 export interface ResponseAudioMessage {
@@ -99,6 +100,10 @@ export type ServerMessage =
   | SessionEndedMessage
   | InterruptionMessage
   | ToolCallMessage;
+
+export type WebRTCServerMessage = Exclude<ServerMessage, ResponseAudioMessage>;
+
+export type WebRTCServerMessageType = WebRTCServerMessage["type"];
 
 export interface InputAudioData {
   audio: string;
@@ -398,15 +403,20 @@ export interface ErrorResponse {
   error: string;
 }
 
-export type SessionTokenTransport = "WebSocket" | "WebRTC";
+export const TRANSPORT_WEBSOCKET = "websocket" as const;
+export const TRANSPORT_WEBRTC = "webrtc" as const;
+
+export type SessionTokenTransport =
+  | typeof TRANSPORT_WEBSOCKET
+  | typeof TRANSPORT_WEBRTC;
 
 export interface GenerateSessionTokenOptions {
   transport?: SessionTokenTransport;
-  identity?: string;
 }
 
 export interface SessionTokenResponse {
   token: string;
   room?: string;
+  identity?: string;
   url?: string;
 }
