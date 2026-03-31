@@ -76,20 +76,18 @@
   </style>
 </head>
 <body>
-  <h1>Vatel agent session (voice)</h1>
+  <h1>Voice agent demo</h1>
   <h2>WebSocket session</h2>
   <p class="hint">
-    From <code>examples/web-voice-demo</code>: <code>npm install</code>, then <code>npm start</code> (builds the repo SDK and a browser bundle that uses <code>@vatel/sdk</code>).
-    Enter your org API key and agent ID below, or use <code>.env</code> for <code>VATEL_API_KEY</code> / <code>VATEL_AGENT_ID</code>. Pasting the key in the browser is for local demos only.
+    Voice session over WebSocket. Your organization API key and agent ID are required. Only use credentials on a device and connection you trust.
   </p>
-  <label for="apiKey">Organization API key</label>
-  <input id="apiKey" type="password" placeholder="Optional if VATEL_API_KEY is set on the server" autocomplete="off" spellcheck="false" />
-  <label for="agentId">Agent ID</label>
-  <input id="agentId" type="text" placeholder="UUID of your agent" autocomplete="off" />
+  <label for="apiKey">Organization API key (required)</label>
+  <input id="apiKey" type="password" placeholder="From your Vatel dashboard" autocomplete="off" spellcheck="false" />
+  <label for="agentId">Agent ID (required)</label>
+  <input id="agentId" type="text" placeholder="Agent identifier from your dashboard" autocomplete="off" />
   <div class="row">
     <button type="button" id="btnConnect" class="primary">Connect</button>
     <button type="button" id="btnDisconnect" disabled>Disconnect</button>
-    <button type="button" id="btnMic" disabled>Start microphone</button>
   </div>
   <div id="status">Disconnected</div>
   <div id="log"></div>
@@ -97,13 +95,11 @@
   <div class="section">
     <h2>WebRTC session</h2>
     <p class="hint">
-      Uses <code>WebRTCSession</code> from <code>@vatel/sdk</code> with <code>signalingUrl: ws://localhost:7880</code> (demo override). Requires WebRTC session tokens from the API; run a compatible signaling server on port 7880 locally. The API assigns the participant identity.
+      Voice over WebRTC using the same credentials. WebRTC sessions use tokens issued by Vatel.
     </p>
     <div class="row">
       <button type="button" id="btnWebrtcConnect" class="primary">Connect WebRTC</button>
       <button type="button" id="btnWebrtcDisconnect" disabled>Disconnect WebRTC</button>
-      <button type="button" id="btnWebrtcStartAudio" disabled>Start remote audio</button>
-      <button type="button" id="btnWebrtcMic" disabled>Start microphone</button>
     </div>
     <div id="webrtcStatus" class="hint" style="margin-top: 0.75rem;">WebRTC: idle</div>
     <div id="webrtcAudioHost" class="audio-host" aria-live="polite"></div>
