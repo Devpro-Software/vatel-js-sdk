@@ -1,16 +1,16 @@
 import {
-  ConnectionState,
-  LocalParticipant,
-  LocalTrackPublication,
-  Room,
-  RoomEvent,
-  Track,
-  type RemoteParticipant,
-  type RemoteTrack,
-  type RemoteTrackPublication,
+	ConnectionState,
+	LocalParticipant,
+	LocalTrackPublication,
+	Room,
+	RoomEvent,
+	Track,
+	type RemoteParticipant,
+	type RemoteTrack,
+	type RemoteTrackPublication,
 } from "livekit-client";
 
-import type { WebRTCServerMessage } from "./types.js";
+import type { ClientMessage, ToolCallOutputMessage, WebRTCServerMessage } from "./types.js";
 import { parseServerMessage } from "./parse-server-message.js";
 
 export { ConnectionState };
@@ -20,24 +20,17 @@ export const DEFAULT_WEBRTC_SIGNALING_URL = "wss://sip.vatel.ai";
 export const WEBRTC_MESSAGES_TOPIC = "messages";
 
 export interface WebRTCSessionOptions {
-  remoteAudioContainer?: HTMLElement;
+	remoteAudioContainer?: HTMLElement;
 }
-
-export type RemoteAudioCallback = (args: {
-  track: RemoteTrack;
-  publication: RemoteTrackPublication;
-  participant: RemoteParticipant;
-  element: HTMLAudioElement;
-}) => void;
 
 type MessageHandler = (message: WebRTCServerMessage) => void;
 type TypedMessageHandler<T extends WebRTCServerMessage> = (message: T) => void;
 
 export interface WebRTCSessionCredentials {
-  token: string;
-  url?: string;
-  room?: string;
-  signalingUrl?: string;
+	token: string;
+	url?: string;
+	room?: string;
+	signalingUrl?: string;
 }
 
 /**
@@ -47,167 +40,166 @@ export interface WebRTCSessionCredentials {
  * agent audio is not delivered as base64 over text.
  */
 export class WebRTCSession {
-  private readonly options: WebRTCSessionOptions;
-  private room: Room | null = null;
-  private readonly remoteAudioHandlers = new Set<RemoteAudioCallback>();
-  private readonly messageHandlers = new Set<MessageHandler>();
+	private readonly options: WebRTCSessionOptions;
+	private room: Room | null = null;
+	private readonly messageHandlers = new Set<MessageHandler>();
 
-  private readonly onTrackSubscribed = (
-    track: RemoteTrack,
-    publication: RemoteTrackPublication,
-    participant: RemoteParticipant
-  ) => {
-    if (track.kind !== Track.Kind.Audio) {
-      return;
-    }
-    const element = track.attach() as HTMLAudioElement;
-    const container = this.options.remoteAudioContainer;
-    if (container) {
-      container.appendChild(element);
-    }
-    for (const h of this.remoteAudioHandlers) {
-      h({ track, publication, participant, element });
-    }
-  };
+	private readonly onTrackSubscribed = (
+		track: RemoteTrack,
+		publication: RemoteTrackPublication,
+		_participant: RemoteParticipant
+	) => {
+		if (track.kind !== Track.Kind.Audio) {
+			return;
+		}
+		const element = track.attach() as HTMLAudioElement;
+		const container = this.options.remoteAudioContainer;
+		if (container) {
+			container.appendChild(element);
+		}
+	};
 
-  private readonly onTrackUnsubscribed = (
-    track: RemoteTrack,
-    _publication: RemoteTrackPublication,
-    _participant: RemoteParticipant
-  ) => {
-    if (track.kind !== Track.Kind.Audio) {
-      return;
-    }
-    track.detach();
-  };
+	private readonly onTrackUnsubscribed = (
+		track: RemoteTrack,
+		_publication: RemoteTrackPublication,
+		_participant: RemoteParticipant
+	) => {
+		if (track.kind !== Track.Kind.Audio) {
+			return;
+		}
+		track.detach();
+	};
 
-  private readonly onLocalTrackUnpublished = (
-    publication: LocalTrackPublication,
-    _participant: LocalParticipant
-  ) => {
-    if (publication.kind !== Track.Kind.Audio) {
-      return;
-    }
-    publication.track?.detach();
-  };
+	private readonly onLocalTrackUnpublished = (
+		publication: LocalTrackPublication,
+		_participant: LocalParticipant
+	) => {
+		if (publication.kind !== Track.Kind.Audio) {
+			return;
+		}
+		publication.track?.detach();
+	};
 
-  constructor(options: WebRTCSessionOptions = {}) {
-    this.options = options;
-  }
+	constructor(options: WebRTCSessionOptions = {}) {
+		this.options = options;
+	}
 
-  get webrtcRoom(): Room | null {
-    return this.room;
-  }
+	get connectionState(): ConnectionState {
+		return this.room?.state ?? ConnectionState.Disconnected;
+	}
 
-  get connectionState(): ConnectionState {
-    return this.room?.state ?? ConnectionState.Disconnected;
-  }
+	on<T extends WebRTCServerMessage["type"]>(
+		type: T,
+		handler: TypedMessageHandler<Extract<WebRTCServerMessage, { type: T }>>
+	): () => void {
+		const wrapper: MessageHandler = (msg) => {
+			if (msg.type === type) {
+				(handler as TypedMessageHandler<WebRTCServerMessage>)(msg);
+			}
+		};
+		this.messageHandlers.add(wrapper);
+		return () => this.messageHandlers.delete(wrapper);
+	}
 
-  onRemoteAudio(handler: RemoteAudioCallback): () => void {
-    this.remoteAudioHandlers.add(handler);
-    return () => this.remoteAudioHandlers.delete(handler);
-  }
+	private async deliverTextFromStream(
+		room: Room,
+		reader: { readAll: () => Promise<string> },
+		_participantIdentity: string
+	): Promise<void> {
+		const text = await reader.readAll();
+		let message: ReturnType<typeof parseServerMessage>;
+		try {
+			message = parseServerMessage(text);
+		} catch {
+			return;
+		}
+		if (message.type === "response_audio") {
+			return;
+		}
+		const webRtcMessage = message as WebRTCServerMessage;
+		for (const h of this.messageHandlers) {
+			h(webRtcMessage);
+		}
+	}
 
-  onMessage(handler: MessageHandler): () => void {
-    this.messageHandlers.add(handler);
-    return () => this.messageHandlers.delete(handler);
-  }
+	async connect(credentials: WebRTCSessionCredentials): Promise<{ room: string }> {
+		if (typeof window === "undefined") {
+			throw new Error("WebRTCSession requires a browser environment");
+		}
+		if (!credentials.token) {
+			throw new Error("WebRTCSession.connect: token is required");
+		}
 
-  on<T extends WebRTCServerMessage["type"]>(
-    type: T,
-    handler: TypedMessageHandler<Extract<WebRTCServerMessage, { type: T }>>
-  ): () => void {
-    const wrapper: MessageHandler = (msg) => {
-      if (msg.type === type) {
-        (handler as TypedMessageHandler<WebRTCServerMessage>)(msg);
-      }
-    };
-    this.messageHandlers.add(wrapper);
-    return () => this.messageHandlers.delete(wrapper);
-  }
+		const url = credentials.url ?? "";
+		const connectUrl =
+			credentials.signalingUrl ??
+			(url !== "" ? url : DEFAULT_WEBRTC_SIGNALING_URL);
 
-  private async deliverTextFromStream(
-    room: Room,
-    reader: { readAll: () => Promise<string> },
-    _participantIdentity: string
-  ): Promise<void> {
-    const text = await reader.readAll();
-    let message: ReturnType<typeof parseServerMessage>;
-    try {
-      message = parseServerMessage(text);
-    } catch {
-      return;
-    }
-    if (message.type === "response_audio") {
-      return;
-    }
-    const webRtcMessage = message as WebRTCServerMessage;
-    for (const h of this.messageHandlers) {
-      h(webRtcMessage);
-    }
-  }
+		const room = new Room();
 
-  async connect(credentials: WebRTCSessionCredentials): Promise<{ room: string }> {
-    if (typeof window === "undefined") {
-      throw new Error("WebRTCSession requires a browser environment");
-    }
-    if (!credentials.token) {
-      throw new Error("WebRTCSession.connect: token is required");
-    }
+		this.room = room;
 
-    const url = credentials.url ?? "";
-    const connectUrl =
-      credentials.signalingUrl ??
-      (url !== "" ? url : DEFAULT_WEBRTC_SIGNALING_URL);
+		void room.prepareConnection(connectUrl, credentials.token);
 
-    const room = new Room();
+		room
+			.on(RoomEvent.TrackSubscribed, this.onTrackSubscribed)
+			.on(RoomEvent.TrackUnsubscribed, this.onTrackUnsubscribed)
+			.on(RoomEvent.LocalTrackUnpublished, this.onLocalTrackUnpublished);
 
-    this.room = room;
+		room.registerTextStreamHandler(WEBRTC_MESSAGES_TOPIC, (reader, { identity }) => {
+			void this.deliverTextFromStream(room, reader, identity);
+		});
 
-    void room.prepareConnection(connectUrl, credentials.token);
+		await room.connect(connectUrl, credentials.token);
 
-    room
-      .on(RoomEvent.TrackSubscribed, this.onTrackSubscribed)
-      .on(RoomEvent.TrackUnsubscribed, this.onTrackUnsubscribed)
-      .on(RoomEvent.LocalTrackUnpublished, this.onLocalTrackUnpublished);
+		return { room: credentials.room ?? room.name };
+	}
 
-    room.registerTextStreamHandler(WEBRTC_MESSAGES_TOPIC, (reader, { identity }) => {
-      void this.deliverTextFromStream(room, reader, identity);
-    });
+	async setMicrophoneEnabled(enabled: boolean): Promise<void> {
+		const r = this.room;
+		if (!r) {
+			throw new Error("WebRTCSession is not connected");
+		}
+		await r.localParticipant.setMicrophoneEnabled(enabled);
+	}
 
-    await room.connect(connectUrl, credentials.token);
+	async start(): Promise<void> {
+		const r = this.room;
+		if (!r) {
+			throw new Error("WebRTCSession is not connected");
+		}
+		await r.startAudio();
+	}
 
-    return { room: credentials.room ?? room.name };
-  }
+	async send(message: ClientMessage): Promise<void> {
+		const r = this.room;
+		if (!r) {
+			throw new Error("WebRTCSession is not connected");
+		}
+		await r.localParticipant.sendText(JSON.stringify(message), {
+			topic: WEBRTC_MESSAGES_TOPIC,
+		});
+	}
 
-  async setMicrophoneEnabled(enabled: boolean): Promise<void> {
-    const r = this.room;
-    if (!r) {
-      throw new Error("WebRTCSession is not connected");
-    }
-    await r.localParticipant.setMicrophoneEnabled(enabled);
-  }
+	async sendToolCallOutput(toolCallId: string, output: string): Promise<void> {
+		const msg: ToolCallOutputMessage = {
+			type: "tool_call_output",
+			data: { toolCallId, output },
+		};
+		await this.send(msg);
+	}
 
-  async start(): Promise<void> {
-    const r = this.room;
-    if (!r) {
-      throw new Error("WebRTCSession is not connected");
-    }
-    await r.startAudio();
-  }
-
-  async disconnect(): Promise<void> {
-    const r = this.room;
-    if (!r) {
-      return;
-    }
-    this.room = null;
-    r.off(RoomEvent.TrackSubscribed, this.onTrackSubscribed);
-    r.off(RoomEvent.TrackUnsubscribed, this.onTrackUnsubscribed);
-    r.off(RoomEvent.LocalTrackUnpublished, this.onLocalTrackUnpublished);
-    r.unregisterTextStreamHandler(WEBRTC_MESSAGES_TOPIC);
-    this.remoteAudioHandlers.clear();
-    this.messageHandlers.clear();
-    await r.disconnect(true);
-  }
+	async disconnect(): Promise<void> {
+		const r = this.room;
+		if (!r) {
+			return;
+		}
+		this.room = null;
+		r.off(RoomEvent.TrackSubscribed, this.onTrackSubscribed);
+		r.off(RoomEvent.TrackUnsubscribed, this.onTrackUnsubscribed);
+		r.off(RoomEvent.LocalTrackUnpublished, this.onLocalTrackUnpublished);
+		r.unregisterTextStreamHandler(WEBRTC_MESSAGES_TOPIC);
+		this.messageHandlers.clear();
+		await r.disconnect(true);
+	}
 }

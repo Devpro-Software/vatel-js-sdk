@@ -5,7 +5,6 @@ import {
   Session,
   WebRTCSession,
 } from "@vatel/sdk";
-import { RoomEvent } from "livekit-client";
 
 const SAMPLE_RATE = 24000;
 const logEl = document.getElementById("log");
@@ -227,7 +226,8 @@ async function connect() {
   session.on("tool_call", (msg) => {
     log("tool_call " + (msg.data && msg.data.toolName));
     if (session && session.state === "open" && msg.data && msg.data.toolCallId) {
-      session.sendToolCallOutput(msg.data.toolCallId, "{}");
+      log("sendToolCallOutput " + msg.data.toolCallId + " Success");
+      session.sendToolCallOutput(msg.data.toolCallId, "Success");
     }
   });
   session.on("session_ended", () => {
@@ -306,7 +306,6 @@ function wlog(line) {
 
 let webrtcSession = null;
 let webrtcMicOn = false;
-const webrtcRoomListeners = [];
 
 function setWebrtcUi(connected) {
   btnWebrtcConnect.disabled = connected;
@@ -320,32 +319,6 @@ function setWebrtcUi(connected) {
   webrtcStatusEl.textContent = connected
     ? "WebRTC: connected (" + (webrtcSession?.connectionState ?? "?") + ")"
     : "WebRTC: idle";
-}
-
-function wireWebrtcRoomDebug(room) {
-  const wrap = (ev, fn) => {
-    room.on(ev, fn);
-    webrtcRoomListeners.push(() => room.off(ev, fn));
-  };
-  wrap(RoomEvent.Connected, () => wlog("RoomEvent.Connected"));
-  wrap(RoomEvent.Disconnected, (reason) => wlog("RoomEvent.Disconnected " + String(reason)));
-  wrap(RoomEvent.Reconnecting, () => wlog("RoomEvent.Reconnecting"));
-  wrap(RoomEvent.Reconnected, () => wlog("RoomEvent.Reconnected"));
-  wrap(RoomEvent.ConnectionStateChanged, (s) =>
-    wlog("RoomEvent.ConnectionStateChanged " + String(s))
-  );
-  wrap(RoomEvent.ParticipantConnected, (p) =>
-    wlog("RoomEvent.ParticipantConnected identity=" + p.identity)
-  );
-  wrap(RoomEvent.ParticipantDisconnected, (p) =>
-    wlog("RoomEvent.ParticipantDisconnected identity=" + p.identity)
-  );
-  wrap(RoomEvent.TrackPublished, (pub, p) =>
-    wlog("RoomEvent.TrackPublished kind=" + pub.kind + " from=" + p.identity)
-  );
-  wrap(RoomEvent.TrackSubscribed, (track, _pub, p) =>
-    wlog("RoomEvent.TrackSubscribed kind=" + track.kind + " from=" + p.identity)
-  );
 }
 
 async function connectWebrtc() {
@@ -409,17 +382,6 @@ async function connectWebrtc() {
     remoteAudioContainer: webrtcAudioHost,
   });
 
-  webrtcSession.onRemoteAudio(({ participant, track, element }) => {
-    wlog(
-      "onRemoteAudio participant=" +
-        participant.identity +
-        " trackSid=" +
-        track.sid +
-        " element=" +
-        element.tagName
-    );
-  });
-
   wlog(
     "WebRTC text topic " +
       WEBRTC_MESSAGES_TOPIC +
@@ -446,15 +408,10 @@ async function connectWebrtc() {
   });
   webrtcSession.on("tool_call", (msg) => {
     wlog("[webrtc] tool_call " + (msg.data && msg.data.toolName));
-    const rk = webrtcSession && webrtcSession.webrtcRoom;
-    if (rk && msg.data && msg.data.toolCallId) {
-      const payload = JSON.stringify({
-        type: "tool_call_output",
-        data: { toolCallId: msg.data.toolCallId, output: "{}" },
-      });
-      rk.localParticipant
-        .sendText(payload, { topic: WEBRTC_MESSAGES_TOPIC })
-        .catch((e) => wlog("[webrtc] sendText tool output: " + e));
+    if (msg.data && msg.data.toolCallId) {
+      webrtcSession
+        .sendToolCallOutput(msg.data.toolCallId, "Success")
+        .catch((e) => wlog("[webrtc] sendToolCallOutput: " + e));
     }
   });
   webrtcSession.on("session_ended", () => {
@@ -472,13 +429,6 @@ async function connectWebrtc() {
     wlog("WebRTCSession connected, room name: " + joinedRoom);
     wlog("connectionState=" + webrtcSession.connectionState);
 
-    const rk = webrtcSession.webrtcRoom;
-    if (rk) {
-      wireWebrtcRoomDebug(rk);
-    } else {
-      wlog("warn: webrtcRoom is null after connect");
-    }
-
     setWebrtcUi(true);
   } catch (e) {
     wlog("connect error: " + (e instanceof Error ? e.message : String(e)));
@@ -488,7 +438,6 @@ async function connectWebrtc() {
 }
 
 async function disconnectWebrtc() {
-  webrtcRoomListeners.splice(0).forEach((u) => u());
   if (webrtcSession) {
     wlog("WebRTCSession.disconnect() …");
     try {

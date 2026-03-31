@@ -7,7 +7,6 @@ export {
   ConnectionState,
 } from "./webrtc-session.js";
 export type {
-  RemoteAudioCallback,
   WebRTCSessionCredentials,
   WebRTCSessionOptions,
 } from "./webrtc-session.js";
