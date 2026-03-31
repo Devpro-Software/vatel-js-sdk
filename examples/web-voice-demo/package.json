@@ -1,0 +1,19 @@
+{
+  "name": "vatel-web-voice-demo",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:sdk": "npm run build --prefix ../..",
+    "build:client": "esbuild client/demo.js --bundle --format=esm --outfile=public/demo.bundle.js --platform=browser",
+    "prestart": "npm run build:sdk && npm run build:client",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@vatel/sdk": "file:../..",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0"
+  }
+}

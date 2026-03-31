@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Vatel agent voice demo</title>
+  <style>
+    :root {
+      font-family: system-ui, sans-serif;
+      line-height: 1.5;
+      color: #e8e8ec;
+      background: #12141a;
+    }
+    body {
+      max-width: 42rem;
+      margin: 2rem auto;
+      padding: 0 1rem;
+    }
+    h1 { font-size: 1.25rem; font-weight: 600; }
+    label { display: block; margin-top: 0.75rem; font-size: 0.875rem; color: #9b9dad; }
+    input[type="text"],
+    input[type="password"] {
+      width: 100%;
+      box-sizing: border-box;
+      margin-top: 0.25rem;
+      padding: 0.5rem 0.65rem;
+      border-radius: 6px;
+      border: 1px solid #2a2d38;
+      background: #1a1d26;
+      color: inherit;
+    }
+    .row { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem; align-items: center; }
+    button {
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      border: 1px solid #3d4152;
+      background: #252830;
+      color: inherit;
+      cursor: pointer;
+      font-size: 0.875rem;
+    }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    button.primary { background: #3b5bdb; border-color: #4c6ef5; }
+    button.danger { background: #5c2b29; border-color: #862e2c; }
+    #status {
+      margin-top: 1rem;
+      font-size: 0.875rem;
+      color: #adb0c0;
+    }
+    #log,
+    #webrtcLog {
+      margin-top: 1rem;
+      padding: 0.75rem;
+      border-radius: 8px;
+      background: #1a1d26;
+      border: 1px solid #2a2d38;
+      font-family: ui-monospace, monospace;
+      font-size: 0.75rem;
+      white-space: pre-wrap;
+      word-break: break-word;
+      max-height: 14rem;
+      overflow-y: auto;
+    }
+    .hint { font-size: 0.8rem; color: #6c7080; margin-top: 0.5rem; }
+    .section {
+      margin-top: 2rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid #2a2d38;
+    }
+    h2 { font-size: 1.05rem; font-weight: 600; margin: 0 0 0.5rem; color: #c5c8d4; }
+    .audio-host {
+      min-height: 0;
+      margin-top: 0.5rem;
+    }
+    .audio-host:empty { display: none; }
+  </style>
+</head>
+<body>
+  <h1>Voice agent demo</h1>
+  <h2>WebSocket session</h2>
+  <p class="hint">
+    Voice session over WebSocket. Your organization API key and agent ID are required. Only use credentials on a device and connection you trust.
+  </p>
+  <label for="apiKey">Organization API key (required)</label>
+  <input id="apiKey" type="password" placeholder="From your Vatel dashboard" autocomplete="off" spellcheck="false" />
+  <label for="agentId">Agent ID (required)</label>
+  <input id="agentId" type="text" placeholder="Agent identifier from your dashboard" autocomplete="off" />
+  <div class="row">
+    <button type="button" id="btnConnect" class="primary">Connect</button>
+    <button type="button" id="btnDisconnect" disabled>Disconnect</button>
+  </div>
+  <div id="status">Disconnected</div>
+  <div id="log"></div>
+
+  <div class="section">
+    <h2>WebRTC session</h2>
+    <p class="hint">
+      Voice over WebRTC using the same credentials. WebRTC sessions use tokens issued by Vatel.
+    </p>
+    <div class="row">
+      <button type="button" id="btnWebrtcConnect" class="primary">Connect WebRTC</button>
+      <button type="button" id="btnWebrtcDisconnect" disabled>Disconnect WebRTC</button>
+    </div>
+    <div id="webrtcStatus" class="hint" style="margin-top: 0.75rem;">WebRTC: idle</div>
+    <div id="webrtcAudioHost" class="audio-host" aria-live="polite"></div>
+    <div id="webrtcLog"></div>
+  </div>
+
+  <script type="module" src="/demo.bundle.js"></script>
+</body>
+</html>

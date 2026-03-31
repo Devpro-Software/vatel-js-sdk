@@ -1,8 +1,21 @@
 export { Session } from "./session.js";
 export { Client } from "./rest.js";
+export {
+  WEBRTC_MESSAGES_TOPIC,
+  DEFAULT_WEBRTC_SIGNALING_URL,
+  WebRTCSession,
+  ConnectionState,
+} from "./webrtc-session.js";
+export type {
+  WebRTCSessionCredentials,
+  WebRTCSessionOptions,
+} from "./webrtc-session.js";
 export type { ClientOptions } from "./rest.js";
+export { TRANSPORT_WEBRTC, TRANSPORT_WEBSOCKET } from "./types.js";
 export type {
   ServerMessage,
+  WebRTCServerMessage,
+  WebRTCServerMessageType,
   ServerMessageType,
   ClientMessage,
   SessionOptions,
@@ -27,6 +40,8 @@ export type {
   ToolCallOutputMessage,
   ToolCallOutputData,
   Agent,
+  AgentCreateInput,
+  AgentUpdateInput,
   AgentStatus,
   TTSStrategy,
   TimeoutAction,
@@ -34,5 +49,30 @@ export type {
   VadSettings,
   NoiseCancelSettings,
   TimeoutSettings,
+  GenerateSessionTokenOptions,
   SessionTokenResponse,
+  SessionTokenTransport,
+  Organization,
+  LLMStringsResponse,
+  VoiceCatalogEntry,
+  VoicesListResponse,
+  GraphVersion,
+  GraphNode,
+  GraphVersionDetail,
+  DialAgentResponse,
+  TwilioPhoneNumber,
+  TwilioPhoneNumberImportInput,
+  TwilioPhoneNumberLabelPatchInput,
+  CallerTransformType,
+  SIPTrunkAuthType,
+  RegistrationStatus,
+  SipTrunkCallerIDTransform,
+  SipTrunkPbx,
+  SipTrunk,
+  SipTrunkCreateInput,
+  SipTrunkUpdateInput,
+  SipTrunkAgentAssignment,
+  SipTrunkAgentAssignmentCreateInput,
+  SipTrunkAgentAssignmentPatchInput,
+  ErrorResponse,
 } from "./types.js";
