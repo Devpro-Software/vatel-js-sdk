@@ -30,7 +30,6 @@ export interface WebRTCSessionCredentials {
 	token: string;
 	url?: string;
 	room?: string;
-	signalingUrl?: string;
 }
 
 /**
@@ -131,9 +130,7 @@ export class WebRTCSession {
 		}
 
 		const url = credentials.url ?? "";
-		const connectUrl =
-			credentials.signalingUrl ??
-			(url !== "" ? url : DEFAULT_WEBRTC_SIGNALING_URL);
+		const connectUrl = url !== "" ? url : DEFAULT_WEBRTC_SIGNALING_URL;
 
 		const room = new Room();
 
