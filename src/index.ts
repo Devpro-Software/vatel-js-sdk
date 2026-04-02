@@ -5,17 +5,17 @@ export {
   DEFAULT_WEBRTC_SIGNALING_URL,
   WebRTCSession,
   ConnectionState,
+  DisconnectReason,
 } from "./webrtc-session.js";
-export type {
-  WebRTCSessionCredentials,
-  WebRTCSessionOptions,
-} from "./webrtc-session.js";
+export type { WebRTCSessionCredentials, WebRTCSessionOptions } from "./webrtc-session.js";
 export type { ClientOptions } from "./rest.js";
 export { TRANSPORT_WEBRTC, TRANSPORT_WEBSOCKET } from "./types.js";
 export type {
   ServerMessage,
   WebRTCServerMessage,
   WebRTCServerMessageType,
+  WebRTCDisconnectedMessage,
+  WebRTCDisconnectedData,
   ServerMessageType,
   ClientMessage,
   SessionOptions,

@@ -1,5 +1,6 @@
 import {
 	ConnectionState,
+	DisconnectReason,
 	LocalParticipant,
 	LocalTrackPublication,
 	Room,
@@ -10,10 +11,15 @@ import {
 	type RemoteTrackPublication,
 } from "livekit-client";
 
-import type { ClientMessage, ToolCallOutputMessage, WebRTCServerMessage } from "./types.js";
+import type {
+	ClientMessage,
+	ToolCallOutputMessage,
+	WebRTCDisconnectedMessage,
+	WebRTCServerMessage,
+} from "./types.js";
 import { parseServerMessage } from "./parse-server-message.js";
 
-export { ConnectionState };
+export { ConnectionState, DisconnectReason };
 
 export const DEFAULT_WEBRTC_SIGNALING_URL = "wss://sip.vatel.ai";
 
@@ -25,6 +31,7 @@ export interface WebRTCSessionOptions {
 
 type MessageHandler = (message: WebRTCServerMessage) => void;
 type TypedMessageHandler<T extends WebRTCServerMessage> = (message: T) => void;
+type DisconnectedHandler = (message: WebRTCDisconnectedMessage) => void;
 
 export interface WebRTCSessionCredentials {
 	token: string;
@@ -37,11 +44,23 @@ export interface WebRTCSessionCredentials {
  * publishes microphone audio, and plays remote audio via received tracks.
  * The `messages` text channel carries session events only (no `response_audio`);
  * agent audio is not delivered as base64 over text.
+ * Use `on("disconnected", ...)` for LiveKit room teardown (including when remote audio is unsubscribed).
  */
 export class WebRTCSession {
 	private readonly options: WebRTCSessionOptions;
 	private room: Room | null = null;
 	private readonly messageHandlers = new Set<MessageHandler>();
+	private readonly disconnectedHandlers = new Set<DisconnectedHandler>();
+
+	private readonly onRoomDisconnected = (reason?: DisconnectReason) => {
+		const message: WebRTCDisconnectedMessage = {
+			type: "disconnected",
+			...(reason !== undefined ? { data: { reason } } : {}),
+		};
+		for (const h of this.disconnectedHandlers) {
+			h(message);
+		}
+	};
 
 	private readonly onTrackSubscribed = (
 		track: RemoteTrack,
@@ -67,6 +86,7 @@ export class WebRTCSession {
 			return;
 		}
 		track.detach();
+		void this.disconnect();
 	};
 
 	private readonly onLocalTrackUnpublished = (
@@ -90,7 +110,17 @@ export class WebRTCSession {
 	on<T extends WebRTCServerMessage["type"]>(
 		type: T,
 		handler: TypedMessageHandler<Extract<WebRTCServerMessage, { type: T }>>
+	): () => void;
+	on(type: "disconnected", handler: DisconnectedHandler): () => void;
+	on(
+		type: WebRTCServerMessage["type"] | "disconnected",
+		handler: TypedMessageHandler<WebRTCServerMessage> | DisconnectedHandler
 	): () => void {
+		if (type === "disconnected") {
+			const h = handler as DisconnectedHandler;
+			this.disconnectedHandlers.add(h);
+			return () => this.disconnectedHandlers.delete(h);
+		}
 		const wrapper: MessageHandler = (msg) => {
 			if (msg.type === type) {
 				(handler as TypedMessageHandler<WebRTCServerMessage>)(msg);
@@ -141,7 +171,8 @@ export class WebRTCSession {
 		room
 			.on(RoomEvent.TrackSubscribed, this.onTrackSubscribed)
 			.on(RoomEvent.TrackUnsubscribed, this.onTrackUnsubscribed)
-			.on(RoomEvent.LocalTrackUnpublished, this.onLocalTrackUnpublished);
+			.on(RoomEvent.LocalTrackUnpublished, this.onLocalTrackUnpublished)
+			.on(RoomEvent.Disconnected, this.onRoomDisconnected);
 
 		room.registerTextStreamHandler(WEBRTC_MESSAGES_TOPIC, (reader, { identity }) => {
 			void this.deliverTextFromStream(room, reader, identity);
@@ -197,6 +228,10 @@ export class WebRTCSession {
 		r.off(RoomEvent.LocalTrackUnpublished, this.onLocalTrackUnpublished);
 		r.unregisterTextStreamHandler(WEBRTC_MESSAGES_TOPIC);
 		this.messageHandlers.clear();
-		await r.disconnect(true);
+		try {
+			await r.disconnect(true);
+		} finally {
+			r.off(RoomEvent.Disconnected, this.onRoomDisconnected);
+		}
 	}
 }
