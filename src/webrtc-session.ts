@@ -157,7 +157,7 @@ export class WebRTCSession {
 		if (!r) {
 			throw new Error("WebRTCSession is not connected");
 		}
-		await r.localParticipant.setMicrophoneEnabled(enabled);
+		await r.localParticipant.setMicrophoneEnabled(enabled, undefined, { dtx: false });
 	}
 
 	async start(): Promise<void> {
