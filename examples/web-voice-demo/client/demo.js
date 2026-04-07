@@ -352,6 +352,15 @@ async function connectWebrtc() {
 	webrtcSession.on("session_ended", () => {
 		wlog("Session ended");
 	});
+	webrtcSession.on("disconnected", (msg) => {
+		wlog(
+			"Disconnected: " +
+				(msg.data?.reason != null ? String(msg.data.reason) : "unknown reason")
+		);
+		webrtcSession = null;
+		webrtcAudioHost.replaceChildren();
+		setWebrtcUi(false);
+	});
 
 	try {
 		await webrtcSession.connect({
