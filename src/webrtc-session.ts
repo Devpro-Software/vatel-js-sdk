@@ -44,7 +44,7 @@ export interface WebRTCSessionCredentials {
  * publishes microphone audio, and plays remote audio via received tracks.
  * The `messages` text channel carries session events only (no `response_audio`);
  * agent audio is not delivered as base64 over text.
- * Use `on("disconnected", ...)` when the LiveKit room ends (including after `disconnect()` or remote audio unsubscribe).
+ * Use `on("disconnected", ...)` when the room session ends (including after `disconnect()` or remote audio unsubscribe).
  */
 export class WebRTCSession {
 	private readonly options: WebRTCSessionOptions;
