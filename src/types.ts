@@ -105,6 +105,15 @@ export type WebRTCServerMessage = Exclude<ServerMessage, ResponseAudioMessage>;
 
 export type WebRTCServerMessageType = WebRTCServerMessage["type"];
 
+export interface WebRTCDisconnectedData {
+	reason?: number;
+}
+
+export interface WebRTCDisconnectedMessage {
+	type: "disconnected";
+	data?: WebRTCDisconnectedData;
+}
+
 export interface InputAudioData {
 	audio: string;
 }
