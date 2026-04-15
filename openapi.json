@@ -1,0 +1,2164 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Vatel AI REST API",
+    "description": "Programmatic access for agents, telephony, and session tokens. Send `Authorization: Bearer <organization API key>` on all requests unless noted. Most error responses return JSON with an `error` string message.",
+    "version": "0.2.2"
+  },
+  "servers": [
+    {
+      "url": "https://api.vatel.ai",
+      "description": "Production"
+    }
+  ],
+  "tags": [
+    { "name": "organization", "description": "Organization tied to your API key" },
+    { "name": "llms", "description": "LLM model identifiers" },
+    { "name": "voices", "description": "TTS voice catalog" },
+    { "name": "agents", "description": "Agents, outbound dial, agent versions" },
+    { "name": "twilio", "description": "Imported Twilio phone numbers" },
+    { "name": "sip-trunks", "description": "SIP trunk configuration" },
+    { "name": "session", "description": "Short-lived session tokens" },
+    { "name": "calls", "description": "Call history and recordings for your organization" }
+  ],
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/v1/organization": {
+      "get": {
+        "tags": ["organization"],
+        "summary": "Get current organization",
+        "description": "Resolve id and name for the organization that owns the API key.",
+        "operationId": "getOrganization",
+        "responses": {
+          "200": {
+            "description": "Organization",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Organization" }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/llms": {
+      "get": {
+        "tags": ["llms"],
+        "summary": "List agent-allowed LLM model strings",
+        "description": "Returns sorted identifiers you may use for an agent's primary and fallback models. Values are `provider/model` strings.",
+        "operationId": "listLLMs",
+        "responses": {
+          "200": {
+            "description": "Model id list",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/LLMStringsResponse" }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/voices": {
+      "get": {
+        "tags": ["voices"],
+        "summary": "List aggregated TTS voices",
+        "description": "Combined catalog of voices you can reference in agent `voice_settings`. The list may vary by environment and provider availability.",
+        "operationId": "listVoices",
+        "responses": {
+          "200": {
+            "description": "Voice catalog",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/VoicesListResponse" }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/agents": {
+      "get": {
+        "tags": ["agents"],
+        "summary": "List agents",
+        "description": "All agents owned by the organization for the current API key.",
+        "operationId": "listAgents",
+        "responses": {
+          "200": {
+            "description": "Agents for the organization",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/Agent" }
+                }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["agents"],
+        "summary": "Create agent",
+        "description": "Creates a new agent; optional fields override server defaults.",
+        "operationId": "createAgent",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/AgentCreateInput" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created agent",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Agent" }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation or voice resolution error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/agents/{id}": {
+      "get": {
+        "tags": ["agents"],
+        "summary": "Get agent",
+        "operationId": "getAgent",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Agent id",
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Agent",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Agent" }
+              }
+            }
+          },
+          "400": { "description": "Invalid id" },
+          "401": { "description": "Unauthorized" },
+          "404": {
+            "description": "Agent not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": ["agents"],
+        "summary": "Update agent",
+        "operationId": "patchAgent",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Agent id",
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/AgentUpdateInput" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated agent",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Agent" }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation or voice resolution error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" },
+          "404": {
+            "description": "Agent not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["agents"],
+        "summary": "Delete agent",
+        "operationId": "deleteAgent",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Agent id",
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "204": { "description": "Deleted" },
+          "400": { "description": "Invalid id" },
+          "401": { "description": "Unauthorized" },
+          "404": {
+            "description": "Agent not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/agents/{id}/versions": {
+      "get": {
+        "tags": ["agents"],
+        "summary": "List agent versions",
+        "operationId": "listAgentGraphVersions",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Agent id",
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Agent versions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/GraphVersion" }
+                }
+              }
+            }
+          },
+          "400": { "description": "Invalid agent id" },
+          "401": { "description": "Unauthorized" },
+          "404": {
+            "description": "Agent not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/agents/{id}/versions/{versionId}": {
+      "get": {
+        "tags": ["agents"],
+        "summary": "Get agent version with nodes",
+        "operationId": "getAgentGraphVersion",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Agent id",
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "versionId",
+            "in": "path",
+            "required": true,
+            "description": "Agent version id",
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Version and nodes",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/GraphVersionDetail" }
+              }
+            }
+          },
+          "400": { "description": "Invalid ids" },
+          "401": { "description": "Unauthorized" },
+          "404": {
+            "description": "Agent or agent version not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/agents/{id}/versions/{versionId}/publish": {
+      "post": {
+        "tags": ["agents"],
+        "summary": "Publish agent version",
+        "description": "Sets published_at on the version, sets this version as the agent's active version, and returns the updated version. Returns 409 if the version was already published.",
+        "operationId": "publishAgentGraphVersion",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Agent id",
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "versionId",
+            "in": "path",
+            "required": true,
+            "description": "Agent version id",
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Published version",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/GraphVersion" }
+              }
+            }
+          },
+          "400": { "description": "Invalid ids" },
+          "401": { "description": "Unauthorized" },
+          "404": {
+            "description": "Agent or agent version not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "409": {
+            "description": "Version already published",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/agents/{id}/dial": {
+      "post": {
+        "tags": ["agents"],
+        "summary": "Dial outbound (Twilio or SIP trunk)",
+        "description": "Places an outbound call. Without `sipTrunkId`, uses the agent's assigned Twilio number and requires the agent to be active with a phone number. With `sipTrunkId`, dials via the assigned SIP outbound trunk (async); `number` or `destination` is then required. `number` and `destination` are aliases for the callee; send one or both with the same value.",
+        "operationId": "dialAgent",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Agent id",
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "number",
+            "in": "query",
+            "required": false,
+            "description": "Callee to dial (alias of `destination`). Required for a successful dial unless you rely solely on `destination`. Must match `destination` if both are sent.",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "destination",
+            "in": "query",
+            "required": false,
+            "description": "Callee to dial (alias of `number`). Required for a successful dial unless you rely solely on `number`. Must match `number` if both are sent.",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "sipTrunkId",
+            "in": "query",
+            "required": false,
+            "description": "UUID of a SIP trunk assigned to this agent. When set, outbound uses the SIP trunk path instead of Twilio.",
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "callerId",
+            "in": "query",
+            "required": false,
+            "description": "When using `sipTrunkId`, optional SIP From user override; defaults to the agent id.",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Call request accepted (Twilio) or SIP dial accepted asynchronously (trunk path).",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/DialAgentResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing or conflicting callee (`number`/`destination`), invalid UUIDs, invalid number length, or agent has no phone number on the Twilio path.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing Bearer token or invalid organization API key for this agent",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "403": {
+            "description": "SIP trunk not assigned to the agent, trunk organization mismatch, or related trunk access denial.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "404": {
+            "description": "Agent, inactive agent, phone number record, or SIP trunk not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "500": {
+            "description": "Server or telephony error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "503": {
+            "description": "Media or SIP credentials required for the trunk dial path are not configured on the server.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/calls": {
+      "get": {
+        "tags": ["calls"],
+        "summary": "List calls",
+        "description": "Paginated calls for the organization tied to your API key. Filter with optional query parameters. When using the internal server API key (`Authorization: Bearer` or `API-KEY` matching server config), you must send `organization_id` as a query parameter (UUID).",
+        "operationId": "listCalls",
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "query",
+            "required": false,
+            "description": "Organization UUID. Required when the request is authenticated with the internal server API key; ignored for organization API keys.",
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "description": "Page number (1-based). Default 1.",
+            "schema": { "type": "integer", "minimum": 1, "default": 1 }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "description": "Page size. Default 20, maximum 100.",
+            "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 }
+          },
+          {
+            "name": "agent_ids",
+            "in": "query",
+            "required": false,
+            "description": "Comma-separated agent UUIDs to restrict results.",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": { "$ref": "#/components/schemas/CallStatus" }
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "required": false,
+            "schema": { "$ref": "#/components/schemas/CallSource" }
+          },
+          {
+            "name": "date_from",
+            "in": "query",
+            "required": false,
+            "description": "Filter calls with `created_at` on or after this instant (RFC3339 or ISO8601 string accepted by the backend).",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "date_to",
+            "in": "query",
+            "required": false,
+            "description": "Filter calls with `created_at` on or before this instant.",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "outbound",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "enum": ["true", "false"] }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "description": "Substring match on party number (max 256 characters).",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "tag",
+            "in": "query",
+            "required": false,
+            "description": "Filter by tag (max 128 characters).",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "outcome",
+            "in": "query",
+            "required": false,
+            "description": "Filter by termination outcome / reason bucket.",
+            "schema": {
+              "type": "string",
+              "enum": ["transferred", "ended_by_agent", "ended_by_user"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated calls",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PaginatedCallsResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query parameters (e.g. invalid UUIDs or filter enums)",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/calls/{id}": {
+      "get": {
+        "tags": ["calls"],
+        "summary": "Get call",
+        "description": "Returns one call by id if it belongs to an organization you can access.",
+        "operationId": "getCall",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Call id",
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Call",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Call" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid call id",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" },
+          "404": {
+            "description": "Call not found or not accessible",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/calls/{id}/recording": {
+      "get": {
+        "tags": ["calls"],
+        "summary": "Download call recording",
+        "description": "Streams the WAV recording for the call (`{id}.wav` in storage). Response body is raw audio with `Content-Disposition: attachment`. Errors are JSON.",
+        "operationId": "downloadCallRecording",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Call id",
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "WAV audio file",
+            "content": {
+              "audio/wav": {
+                "schema": { "type": "string", "format": "binary" }
+              }
+            },
+            "headers": {
+              "Content-Disposition": {
+                "description": "Attachment filename `{id}.wav`",
+                "schema": { "type": "string" }
+              },
+              "Content-Length": {
+                "description": "Byte length of the body",
+                "schema": { "type": "integer" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid call id",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" },
+          "404": {
+            "description": "Call not found, not accessible, or recording object missing",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "405": { "description": "Method not allowed" },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/twilio/numbers": {
+      "get": {
+        "tags": ["twilio"],
+        "summary": "List imported Twilio numbers",
+        "operationId": "listTwilioNumbers",
+        "responses": {
+          "200": {
+            "description": "Phone numbers",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/TwilioPhoneNumber" }
+                }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["twilio"],
+        "summary": "Import Twilio phone number",
+        "operationId": "importTwilioNumber",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/TwilioPhoneNumberImportInput" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Imported",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TwilioPhoneNumber" }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation or Twilio business rule error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" },
+          "409": {
+            "description": "Number already imported",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad gateway when the telephony provider returns an error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/twilio/numbers/{id}": {
+      "patch": {
+        "tags": ["twilio"],
+        "summary": "Update Twilio number label",
+        "operationId": "patchTwilioNumberLabel",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Imported phone number record id",
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/TwilioPhoneNumberLabelPatchInput" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated phone number",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TwilioPhoneNumber" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid body or id",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" },
+          "404": {
+            "description": "Phone number not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sip-trunks": {
+      "get": {
+        "tags": ["sip-trunks"],
+        "summary": "List SIP trunks",
+        "operationId": "listSipTrunks",
+        "responses": {
+          "200": {
+            "description": "SIP trunks",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/SipTrunk" }
+                }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["sip-trunks"],
+        "summary": "Create SIP trunk",
+        "operationId": "createSipTrunk",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SipTrunkCreateInput" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created trunk",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SipTrunk" }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" },
+          "409": {
+            "description": "Inbound SIP username already in use",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "503": {
+            "description": "SIP connectivity is not available in this environment",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sip-trunks/{id}/assignments": {
+      "get": {
+        "tags": ["sip-trunks"],
+        "summary": "List agent assignments on SIP trunk",
+        "operationId": "listSipTrunkAgentAssignments",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "SIP trunk id",
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Assignments: `number` for digest-auth trunks, `alternate_number` for ACL trunks (globally unique).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/SipTrunkAgentAssignment" }
+                }
+              }
+            }
+          },
+          "400": { "description": "Invalid trunk id" },
+          "401": { "description": "Unauthorized" },
+          "404": {
+            "description": "SIP trunk not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["sip-trunks"],
+        "summary": "Create agent assignment on SIP trunk",
+        "description": "Maps an org agent to this trunk. Use `number` when inbound auth is digest (unique on this trunk). Use `alternate_number` when inbound auth is ACL (globally unique alternate dial target). Same rules as the dashboard integrations UI.",
+        "operationId": "createSipTrunkAgentAssignment",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "SIP trunk id",
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SipTrunkAgentAssignmentCreateInput" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created assignment",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SipTrunkAgentAssignment" }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error or agent not in organization",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" },
+          "404": {
+            "description": "SIP trunk or agent not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "409": {
+            "description": "Number or alternate number already in use",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sip-trunks/assignments/{assignmentId}": {
+      "get": {
+        "tags": ["sip-trunks"],
+        "summary": "Get SIP trunk assignment",
+        "operationId": "getSipTrunkAgentAssignment",
+        "parameters": [
+          {
+            "name": "assignmentId",
+            "in": "path",
+            "required": true,
+            "description": "Assignment id",
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Assignment",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SipTrunkAgentAssignment" }
+              }
+            }
+          },
+          "400": { "description": "Invalid assignment id" },
+          "401": { "description": "Unauthorized" },
+          "404": {
+            "description": "Assignment not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": ["sip-trunks"],
+        "summary": "Update SIP trunk assignment",
+        "description": "Patch `number` and/or `alternate_number`. Send `null` to clear a field. Omitted keys are left unchanged. Assignment id is globally unique.",
+        "operationId": "patchSipTrunkAgentAssignment",
+        "parameters": [
+          {
+            "name": "assignmentId",
+            "in": "path",
+            "required": true,
+            "description": "Assignment id",
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SipTrunkAgentAssignmentPatchInput" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated assignment",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SipTrunkAgentAssignment" }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid id or body",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" },
+          "404": {
+            "description": "Assignment not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "409": {
+            "description": "Number or alternate number already in use",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["sip-trunks"],
+        "summary": "Delete SIP trunk assignment",
+        "description": "Assignment id is globally unique.",
+        "operationId": "deleteSipTrunkAgentAssignment",
+        "parameters": [
+          {
+            "name": "assignmentId",
+            "in": "path",
+            "required": true,
+            "description": "Assignment id",
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "204": { "description": "Deleted" },
+          "400": { "description": "Invalid assignment id" },
+          "401": { "description": "Unauthorized" },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sip-trunks/{id}": {
+      "get": {
+        "tags": ["sip-trunks"],
+        "summary": "Get SIP trunk",
+        "operationId": "getSipTrunk",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "SIP trunk id",
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "SIP trunk",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SipTrunk" }
+              }
+            }
+          },
+          "400": { "description": "Invalid id" },
+          "401": { "description": "Unauthorized" },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": ["sip-trunks"],
+        "summary": "Update SIP trunk",
+        "operationId": "patchSipTrunk",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "SIP trunk id",
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SipTrunkUpdateInput" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated trunk",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SipTrunk" }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error or no fields to update",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized" },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "409": {
+            "description": "Inbound SIP username already in use",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["sip-trunks"],
+        "summary": "Delete SIP trunk",
+        "operationId": "deleteSipTrunk",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "SIP trunk id",
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "204": { "description": "Deleted" },
+          "400": { "description": "Invalid id" },
+          "401": { "description": "Unauthorized" },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/session-token": {
+      "post": {
+        "tags": ["session"],
+        "summary": "Generate session token",
+        "description": "Issues a short-lived credential for connecting a voice session to an agent in your organization. Send `agent_id` and optional `transport`: `websocket` (default when omitted) for the platform WebSocket flow, or `webrtc` for a WebRTC media room. Optional `version_id` pins a published agent version (UUID). Optional `prompt` and `first_message` override session parameters and are embedded in WebRTC tokens as participant attributes when using `webrtc`.",
+        "operationId": "generateSessionToken",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/GenerateSessionTokenRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Credential payload. Always includes `token`. For `webrtc` transport, the server also returns `room`, `identity`, and `url`.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SessionTokenResponse" }
+              }
+            }
+          },
+          "400": { "description": "Invalid JSON, disallowed extra properties, missing or invalid `agent_id`, invalid `version_id`, or invalid `transport`." },
+          "401": { "description": "Unauthorized" },
+          "403": {
+            "description": "Agent belongs to another organization",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "404": {
+            "description": "Agent not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "503": {
+            "description": "`webrtc` was requested but WebRTC media credentials or endpoint are not configured on the server.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "API Key",
+        "description": "Send your organization API key as `Authorization: Bearer <key>`."
+      }
+    },
+    "schemas": {
+      "LLMModel": {
+        "type": "string",
+        "description": "Language model id in `provider/model` form. Use `GET /v1/llms` for values accepted on create and update."
+      },
+      "AgentStatus": {
+        "type": "string",
+        "description": "Whether the agent accepts traffic.",
+        "enum": ["active", "inactive"]
+      },
+      "TTSStrategy": {
+        "type": "string",
+        "description": "Text-to-speech vendor backing the agent voice.",
+        "enum": ["elevenlabs", "openai", "cartesia", "hume", "minimax", "fish"]
+      },
+      "TimeoutAction": {
+        "type": "string",
+        "description": "What happens when a timeout condition fires.",
+        "enum": ["end_call", "transfer_call"]
+      },
+      "VoiceSettings": {
+        "type": "object",
+        "description": "Voice and TTS provider for the agent. On create or update, include `id` and `provider`; optional tuning fields (when sent and non-zero) must be between 0 and 2.",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Voice id from the vendor catalog (`GET /v1/voices`)."
+          },
+          "provider": { "$ref": "#/components/schemas/TTSStrategy" },
+          "speed": { "type": "number", "description": "Speech rate tuning when supported by the provider." },
+          "stability": { "type": "number", "description": "Stability tuning when supported (e.g. ElevenLabs)." },
+          "similarity_boost": { "type": "number", "description": "Similarity tuning when supported." },
+          "volume": { "type": "number", "description": "Output level tuning when supported." }
+        }
+      },
+      "VadSettings": {
+        "type": "object",
+        "description": "Voice-activity detection timing for turn-taking. On PATCH, send only the fields to change; omitted properties keep their stored values.",
+        "properties": {
+          "start_secs": { "type": "number", "description": "Seconds of speech before a turn is considered started." },
+          "stop_secs": { "type": "number", "description": "Seconds of silence before end-of-turn." },
+          "silence_timeout_secs": { "type": "number", "description": "Silence duration that triggers end-of-turn or timeout behavior." }
+        }
+      },
+      "NoiseCancelSettings": {
+        "type": "object",
+        "description": "Inbound noise suppression profile.",
+        "properties": {
+          "enabled": { "type": "boolean", "description": "Whether suppression is applied." },
+          "level": { "type": "number", "description": "Noise suppression strength from 0 to 100 (percent), matching Krisp and the product UI." }
+        }
+      },
+      "TimeoutSettings": {
+        "type": "object",
+        "description": "Limits and escalation rules for user silence and overall call duration.",
+        "properties": {
+          "default_timeout": { "type": "number", "description": "Overall inactivity or session timeout (seconds), upper bound enforced server-side." },
+          "timeout_action": { "$ref": "#/components/schemas/TimeoutAction" },
+          "transfer_number": { "type": "string", "description": "E.164 or carrier-accepted number when action is transfer." },
+          "transfer_message": { "type": "string", "description": "Spoken or played message before transfer, when applicable." },
+          "silence_counter": { "type": "integer", "description": "Repeated silence checks or strikes before silence timeout." },
+          "silence_timeout_action": { "$ref": "#/components/schemas/TimeoutAction" },
+          "silence_transfer_number": { "type": "string", "description": "Transfer target when silence action is transfer." }
+        }
+      },
+      "Agent": {
+        "type": "object",
+        "description": "Voice agent configuration for your organization. `llm` is the primary model; `fallback_llm` is used when the primary cannot serve.",
+        "properties": {
+          "id": { "type": "string", "format": "uuid", "description": "Stable agent id." },
+          "phone_number_id": {
+            "type": "string",
+            "description": "Assigned Twilio number id for this agent, if any. Empty when unassigned."
+          },
+          "name": { "type": "string", "description": "Display name." },
+          "llm": { "$ref": "#/components/schemas/LLMModel" },
+          "fallback_llm": { "$ref": "#/components/schemas/LLMModel" },
+          "status": { "$ref": "#/components/schemas/AgentStatus" },
+          "prompt": { "type": "string", "description": "System or base instructions for the model." },
+          "first_message": { "type": "string", "description": "Opening line the agent speaks when a call starts." },
+          "first_message_interruption_time": {
+            "type": "number",
+            "description": "Window (seconds) where the first message can be interrupted."
+          },
+          "default_language": { "type": "string", "description": "Primary speech language: `multi`, `en`, `es`, `fr`, `de`, `it`, `pt`, `ru`, `zh`, `ja`, `ko`, `ar`, or `hi` (same set as the builder UI). `multi` is only appropriate for multilingual STT (e.g. Deepgram Nova)." },
+          "summarize_calls": { "type": "boolean", "description": "Whether to generate summaries after calls." },
+          "created_at": { "type": "string", "format": "date-time" },
+          "updated_at": { "type": "string", "format": "date-time" },
+          "noise_cancel_settings": { "$ref": "#/components/schemas/NoiseCancelSettings" },
+          "vad_settings": { "$ref": "#/components/schemas/VadSettings" },
+          "enable_first_message_outbound": {
+            "type": "boolean",
+            "description": "Play `first_message` on outbound calls when true."
+          },
+          "voice_settings": { "$ref": "#/components/schemas/VoiceSettings" },
+          "timeout_settings": { "$ref": "#/components/schemas/TimeoutSettings" },
+          "keyterms": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Hints for transcription or keyword boosting, up to server limits."
+          }
+        }
+      },
+      "AgentCreateInput": {
+        "type": "object",
+        "description": "Fields accepted when creating an agent; server defaults apply to omitted values.",
+        "required": ["name"],
+        "properties": {
+          "phone_number_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "Twilio number id belonging to this org, or null to leave unassigned."
+          },
+          "name": { "type": "string", "description": "Display name (required)." },
+          "llm": { "$ref": "#/components/schemas/LLMModel" },
+          "fallback_llm": { "$ref": "#/components/schemas/LLMModel" },
+          "status": { "$ref": "#/components/schemas/AgentStatus" },
+          "prompt": { "type": "string" },
+          "first_message": { "type": "string" },
+          "first_message_interruption_time": { "type": "number" },
+          "default_language": {
+            "type": "string",
+            "description": "One of: multi, en, es, fr, de, it, pt, ru, zh, ja, ko, ar, hi (see Agent.default_language)."
+          },
+          "summarize_calls": { "type": "boolean" },
+          "noise_cancel_settings": { "$ref": "#/components/schemas/NoiseCancelSettings" },
+          "vad_settings": { "$ref": "#/components/schemas/VadSettings" },
+          "enable_first_message_outbound": { "type": "boolean" },
+          "timeout_settings": { "$ref": "#/components/schemas/TimeoutSettings" },
+          "keyterms": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Optional list; empty omitted uses server default."
+          },
+          "voice_settings": { "$ref": "#/components/schemas/VoiceSettings" }
+        }
+      },
+      "AgentUpdateInput": {
+        "type": "object",
+        "description": "Partial update: only send fields to change. `keyterms`, when present, replaces the entire list.",
+        "properties": {
+          "phone_number_id": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "New assigned number id, or null to clear assignment."
+          },
+          "name": { "type": "string" },
+          "llm": { "$ref": "#/components/schemas/LLMModel" },
+          "fallback_llm": { "$ref": "#/components/schemas/LLMModel" },
+          "status": { "$ref": "#/components/schemas/AgentStatus" },
+          "prompt": { "type": "string" },
+          "first_message": { "type": "string" },
+          "first_message_interruption_time": { "type": "number" },
+          "default_language": {
+            "type": "string",
+            "description": "One of: multi, en, es, fr, de, it, pt, ru, zh, ja, ko, ar, hi (see Agent.default_language)."
+          },
+          "summarize_calls": { "type": "boolean" },
+          "noise_cancel_settings": { "$ref": "#/components/schemas/NoiseCancelSettings" },
+          "vad_settings": { "$ref": "#/components/schemas/VadSettings" },
+          "enable_first_message_outbound": { "type": "boolean" },
+          "timeout_settings": { "$ref": "#/components/schemas/TimeoutSettings" },
+          "keyterms": { "type": "array", "items": { "type": "string" } },
+          "voice_settings": { "$ref": "#/components/schemas/VoiceSettings" }
+        }
+      },
+      "Organization": {
+        "type": "object",
+        "description": "The organization resolved from your API key.",
+        "properties": {
+          "id": { "type": "string", "format": "uuid", "description": "Organization id." },
+          "name": { "type": "string", "description": "Organization name." },
+          "created_at": { "type": "string", "format": "date-time", "description": "Record creation time." }
+        }
+      },
+      "LLMStringsResponse": {
+        "type": "object",
+        "description": "Allowlisted model ids for agent LLM fields.",
+        "required": ["llms"],
+        "properties": {
+          "llms": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Sorted `provider/model` strings."
+          }
+        }
+      },
+      "VoiceCatalogEntry": {
+        "type": "object",
+        "description": "A single TTS voice offered by a provider.",
+        "required": ["id", "name", "provider", "languages"],
+        "properties": {
+          "id": { "type": "string", "description": "Use this value in agent `voice_settings.id` with matching `provider`." },
+          "name": { "type": "string", "description": "Human-readable label." },
+          "description": { "type": "string", "nullable": true, "description": "Vendor or curated description." },
+          "provider": { "$ref": "#/components/schemas/TTSStrategy" },
+          "languages": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Language codes supported by this voice."
+          },
+          "preview_url": { "type": "string", "nullable": true, "description": "Optional short audio sample URL." },
+          "featured": { "type": "boolean", "description": "Curated highlight flag when present." }
+        }
+      },
+      "VoicesListResponse": {
+        "type": "object",
+        "required": ["voices"],
+        "properties": {
+          "voices": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/VoiceCatalogEntry" },
+            "description": "Merged voices from available providers."
+          }
+        }
+      },
+      "GraphVersion": {
+        "type": "object",
+        "description": "An agent version (tagged snapshot of the conversation flow).",
+        "properties": {
+          "id": { "type": "string", "format": "uuid", "description": "Agent version id; use with `GET .../versions/{versionId}`." },
+          "agent_id": { "type": "string", "format": "uuid" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "published_at": { "type": "string", "format": "date-time", "nullable": true, "description": "When published, if applicable." },
+          "tag": { "type": "string", "description": "Optional label (e.g. draft or release name)." }
+        }
+      },
+      "GraphNode": {
+        "type": "object",
+        "description": "One node in the agent version (type-specific payload, edges, and metadata).",
+        "additionalProperties": true
+      },
+      "GraphVersionDetail": {
+        "type": "object",
+        "description": "An agent version plus all of its nodes.",
+        "required": ["version", "nodes"],
+        "properties": {
+          "version": { "$ref": "#/components/schemas/GraphVersion" },
+          "nodes": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/GraphNode" },
+            "description": "Nodes wired for this version."
+          }
+        }
+      },
+      "TwilioPhoneNumber": {
+        "type": "object",
+        "description": "A Twilio number linked to your organization for voice agents.",
+        "properties": {
+          "id": { "type": "string", "format": "uuid", "description": "App record id for this import." },
+          "phone_number": { "type": "string", "description": "E.164 number." },
+          "phone_sid": { "type": "string", "description": "Twilio IncomingPhoneNumber sid." },
+          "label": { "type": "string", "description": "Friendly name in your project." },
+          "account_sid": { "type": "string", "description": "Twilio account this number belongs to." },
+          "created_at": { "type": "string", "description": "Created timestamp (string form)." },
+          "updated_at": { "type": "string", "description": "Last update timestamp (string form)." }
+        }
+      },
+      "TwilioPhoneNumberImportInput": {
+        "type": "object",
+        "description": "Credentials to register a number with the platform; store secrets securely on the client until sent.",
+        "required": ["phone_number", "account_sid", "auth_token"],
+        "properties": {
+          "label": { "type": "string", "description": "Optional; defaults to a generic label when empty." },
+          "phone_number": { "type": "string", "description": "Number to import, typically E.164." },
+          "account_sid": { "type": "string", "description": "Twilio Account SID (starts with `AC`)." },
+          "auth_token": { "type": "string", "description": "Twilio auth token for the account (used once at import)." }
+        }
+      },
+      "TwilioPhoneNumberLabelPatchInput": {
+        "type": "object",
+        "required": ["label"],
+        "properties": {
+          "label": { "type": "string", "description": "New display label." }
+        }
+      },
+      "CallerTransformType": {
+        "type": "string",
+        "description": "How to adjust caller id before routing.",
+        "enum": [
+          "add_prefix",
+          "add_suffix",
+          "replace",
+          "strip_digits_end",
+          "strip_digits_start"
+        ]
+      },
+      "SIPTrunkAuthType": {
+        "type": "string",
+        "description": "How inbound SIP is authenticated. `acl`: carrier traffic must match the ACL; `inbound_host` is the ACL-validated host. `digest`: SIP digest authentication. `none`: no inbound auth configured.",
+        "enum": ["digest", "acl", "none"]
+      },
+      "RegistrationStatus": {
+        "type": "string",
+        "description": "Last known SIP registration outcome for the trunk leg.",
+        "enum": ["not_registered", "pending", "registered", "failed", "auth_failed"]
+      },
+      "SipTrunkCallerIDTransform": {
+        "type": "object",
+        "description": "Rule applied to caller id on this trunk.",
+        "required": ["type"],
+        "properties": {
+          "type": { "$ref": "#/components/schemas/CallerTransformType" },
+          "value": { "type": "string", "description": "Primary operand (e.g. prefix string)." },
+          "value2": { "type": "string", "description": "Secondary operand when the transform requires it." },
+          "number": { "type": "integer", "description": "Numeric parameter (e.g. digit count) when applicable." }
+        }
+      },
+      "SipTrunk": {
+        "type": "object",
+        "description": "SIP connectivity profile for a supported PBX integration.",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "created_at": { "type": "string", "format": "date-time" },
+          "pbx": {
+            "type": "string",
+            "description": "PBX vendor preset (`3cx`, `yeastar`, `webex`) applying default trunk behavior, or `generic` for other / custom PBX setups where you supply hosts and credentials explicitly.",
+            "enum": ["3cx", "yeastar", "webex", "generic"]
+          },
+          "caller_id_transforms": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/SipTrunkCallerIDTransform" },
+            "description": "Ordered transforms applied to caller id."
+          },
+          "inbound_host": {
+            "type": "string",
+            "description": "Inbound SIP host or domain. When `inbound_auth_type` is `acl`, this is the host validated against the ACL (allowed source for inbound calls)."
+          },
+          "inbound_auth_type": { "$ref": "#/components/schemas/SIPTrunkAuthType" },
+          "inbound_sip_username": { "type": "string", "description": "SIP user for inbound registration if used." },
+          "inbound_registration_status": { "$ref": "#/components/schemas/RegistrationStatus" },
+          "outbound_host": {
+            "type": "string",
+            "description": "SIP host used for outbound legs: platform-initiated calls, on-call flows, and transfers dial out via this host (your carrier or SBC)."
+          },
+          "outbound_sip_username": { "type": "string", "description": "Credentials username for outbound, if any." },
+          "register": { "type": "boolean", "description": "Whether the platform registers this trunk with the carrier." },
+          "outbound_registration_status": { "$ref": "#/components/schemas/RegistrationStatus" },
+          "remain_in_dialog": { "type": "boolean", "description": "Keeping SIP dialog routing behavior when true." }
+        }
+      },
+      "SipTrunkCreateInput": {
+        "type": "object",
+        "description": "Create a SIP trunk; passwords are write-only on the wire.",
+        "required": ["pbx"],
+        "properties": {
+          "pbx": {
+            "type": "string",
+            "description": "PBX vendor preset or `generic` for other/custom PBX configurations.",
+            "enum": ["3cx", "yeastar", "webex", "generic"]
+          },
+          "caller_id_transforms": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/SipTrunkCallerIDTransform" }
+          },
+          "inbound_host": {
+            "type": "string",
+            "nullable": true,
+            "description": "Inbound SIP host or domain; when inbound auth is `acl`, this host is ACL-validated for inbound traffic."
+          },
+          "inbound_auth_type": { "$ref": "#/components/schemas/SIPTrunkAuthType", "nullable": true },
+          "inbound_sip_username": { "type": "string", "nullable": true },
+          "inbound_sip_password": { "type": "string", "nullable": true, "description": "Inbound SIP secret if required." },
+          "outbound_host": {
+            "type": "string",
+            "nullable": true,
+            "description": "Host to dial for outbound calls, on-call, and transfers."
+          },
+          "outbound_sip_username": { "type": "string", "nullable": true },
+          "outbound_sip_password": { "type": "string", "nullable": true, "description": "Outbound SIP secret if required." },
+          "register": { "type": "boolean", "nullable": true, "description": "Enable outbound registration when true." },
+          "remain_in_dialog": { "type": "boolean", "nullable": true }
+        }
+      },
+      "SipTrunkUpdateInput": {
+        "type": "object",
+        "description": "Patch only fields you need; empty string clears optional text fields per server rules.",
+        "properties": {
+          "pbx": {
+            "type": "string",
+            "enum": ["3cx", "yeastar", "webex", "generic"],
+            "description": "Vendor preset or `generic` for other/custom PBX."
+          },
+          "caller_id_transforms": {
+            "type": "array",
+            "nullable": true,
+            "items": { "$ref": "#/components/schemas/SipTrunkCallerIDTransform" },
+            "description": "Replace transforms; empty array clears."
+          },
+          "inbound_host": {
+            "type": "string",
+            "nullable": true,
+            "description": "Inbound host; with `acl` auth, must match the ACL-validated host."
+          },
+          "inbound_auth_type": { "$ref": "#/components/schemas/SIPTrunkAuthType", "nullable": true },
+          "inbound_sip_username": { "type": "string", "nullable": true },
+          "inbound_sip_password": { "type": "string", "nullable": true, "description": "Set to rotate inbound secret." },
+          "outbound_host": {
+            "type": "string",
+            "nullable": true,
+            "description": "Outbound dial host for calls, on-call, and transfers."
+          },
+          "outbound_sip_username": { "type": "string", "nullable": true },
+          "outbound_sip_password": { "type": "string", "nullable": true },
+          "register": { "type": "boolean", "nullable": true },
+          "remain_in_dialog": { "type": "boolean", "nullable": true }
+        }
+      },
+      "SipTrunkAgentAssignment": {
+        "type": "object",
+        "description": "Binds an org agent to a SIP trunk. With digest inbound auth, routing uses `number`. With ACL inbound auth, routing uses `alternate_number` (globally unique).",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "agent_id": { "type": "string", "format": "uuid" },
+          "sip_trunk_id": { "type": "string", "format": "uuid" },
+          "number": {
+            "type": "string",
+            "description": "Number to dial for this agent when the trunk uses digest inbound auth; must be unique among assignments on this trunk."
+          },
+          "alternate_number": {
+            "type": "string",
+            "description": "Globally unique alternate dial string when the trunk uses ACL inbound auth; used instead of per-trunk `number` routing in that mode."
+          },
+          "created_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "SipTrunkAgentAssignmentCreateInput": {
+        "type": "object",
+        "description": "Create assignment. Use `number` for digest-auth trunks (unique on this trunk). Use `alternate_number` for ACL trunks (globally unique). Both may be set if you use both routing styles.",
+        "required": ["agent_id"],
+        "properties": {
+          "agent_id": { "type": "string", "format": "uuid" },
+          "number": {
+            "type": "string",
+            "description": "Target number to dial for digest inbound auth; unique among assignments on this SIP trunk."
+          },
+          "alternate_number": {
+            "type": "string",
+            "description": "Globally unique alternate number to dial when the trunk uses ACL inbound auth."
+          }
+        }
+      },
+      "SipTrunkAgentAssignmentPatchInput": {
+        "type": "object",
+        "description": "Patch only fields present in the JSON. Use null to clear `number` or `alternate_number`.",
+        "properties": {
+          "number": {
+            "type": "string",
+            "nullable": true,
+            "description": "Digest-auth routing number (unique per trunk); null clears."
+          },
+          "alternate_number": {
+            "type": "string",
+            "nullable": true,
+            "description": "ACL routing alternate dial string (globally unique); null clears."
+          }
+        }
+      },
+      "GenerateSessionTokenRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["agent_id"],
+        "properties": {
+          "agent_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "UUID of the agent that will run this voice session."
+          },
+          "version_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Optional published version UUID. When omitted, the server uses the agent's resolved active version."
+          },
+          "transport": {
+            "type": "string",
+            "enum": ["websocket", "webrtc"],
+            "description": "`websocket`: platform WebSocket session (default when omitted). `webrtc`: WebRTC media room; response adds `room`, `identity`, and `url`."
+          },
+          "first_message": {
+            "type": "string",
+            "description": "Optional opening line override for this session (WebSocket session token and WebRTC JWT participant attributes when applicable)."
+          },
+          "prompt": {
+            "type": "string",
+            "description": "Optional system prompt override for this session (WebSocket session parameters and WebRTC JWT participant attributes when applicable)."
+          }
+        }
+      },
+      "SessionTokenResponse": {
+        "type": "object",
+        "description": "With `websocket` transport, only `token` is set. With `webrtc`, `token` is the media-room access JWT (microphone subscribe and publish; participant attributes include `agent_id` and, when provided, `version_id`, `prompt`, and `first_message`), and `room`, `identity`, and `url` are server-assigned.",
+        "required": ["token"],
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "Token for the WebSocket or WebRTC client flow."
+          },
+          "room": {
+            "type": "string",
+            "description": "Media room name assigned by the server. Present only when `transport` was `webrtc`."
+          },
+          "identity": {
+            "type": "string",
+            "description": "Participant identity assigned by the server for the WebRTC session. Present only when `transport` was `webrtc`."
+          },
+          "url": {
+            "type": "string",
+            "description": "WebSocket URL of the media server. Present only when `transport` was `webrtc`."
+          }
+        }
+      },
+      "DialAgentResponse": {
+        "type": "object",
+        "description": "Acknowledgement that an outbound call was requested (Twilio) or that a SIP trunk dial was accepted to run asynchronously.",
+        "required": ["success"],
+        "properties": {
+          "success": { "type": "boolean", "description": "True when the provider accepted the call request." }
+        }
+      },
+      "CallStatus": {
+        "type": "string",
+        "description": "Call lifecycle status.",
+        "enum": ["connected", "started", "in_progress", "auth_failed", "ended"]
+      },
+      "CallSource": {
+        "type": "string",
+        "description": "How the call entered the platform.",
+        "enum": ["twilio", "sip", "simulation", "api"]
+      },
+      "ContextVariable": {
+        "type": "object",
+        "description": "Extracted or session variable attached to a call.",
+        "properties": {
+          "name": { "type": "string" },
+          "type": { "type": "string", "enum": ["system", "input", "extracted"] },
+          "description": { "type": "string" },
+          "value": { "description": "JSON value; shape depends on dataType." },
+          "dataType": { "type": "string", "enum": ["string", "number", "boolean", "object", "array"] },
+          "rationale": { "type": "string" }
+        }
+      },
+      "TranscriptEntryType": {
+        "type": "string",
+        "description": "Kind of transcript row.",
+        "enum": ["message", "tool_call", "tool_call_output", "interruption"]
+      },
+      "TranscriptToolCall": {
+        "type": "object",
+        "description": "Tool invocation metadata on a transcript row.",
+        "properties": {
+          "itemId": { "type": "string" },
+          "callId": { "type": "string" },
+          "toolName": { "type": "string" },
+          "arguments": { "type": "string", "description": "JSON string of arguments." },
+          "output": { "type": "string" },
+          "startedAt": { "type": "string", "format": "date-time" },
+          "endedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "TranscriptEntry": {
+        "type": "object",
+        "description": "One line in the call transcript (message, tool call, tool output, or interruption).",
+        "properties": {
+          "index": { "type": "integer" },
+          "role": {
+            "type": "string",
+            "description": "For message rows: user, assistant, or system. May be empty for tool or interruption rows."
+          },
+          "message": { "type": "string" },
+          "type": { "$ref": "#/components/schemas/TranscriptEntryType" },
+          "toolCall": { "$ref": "#/components/schemas/TranscriptToolCall" },
+          "toolCallOutput": { "type": "string" },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "durationMs": { "type": "integer", "format": "int64" },
+          "turnId": { "type": "string" }
+        }
+      },
+      "Transcript": {
+        "type": "object",
+        "description": "Ordered transcript for the call.",
+        "required": ["entries"],
+        "properties": {
+          "entries": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/TranscriptEntry" }
+          }
+        }
+      },
+      "Call": {
+        "type": "object",
+        "description": "Public call record. `cost` is the customer-facing (marked-up) total; raw provider cost is not exposed.",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "agent_id": { "type": "string", "format": "uuid" },
+          "graph_version_id": { "type": "string", "format": "uuid" },
+          "organization_id": { "type": "string", "format": "uuid" },
+          "party_number": { "type": "string" },
+          "status": { "$ref": "#/components/schemas/CallStatus" },
+          "source": { "$ref": "#/components/schemas/CallSource" },
+          "termination_reason": { "type": "string" },
+          "extracted_variables": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/ContextVariable" }
+          },
+          "outbound": { "type": "boolean" },
+          "outbound_contact_id": { "type": "string", "format": "uuid" },
+          "outbound_list_run_id": { "type": "string", "format": "uuid" },
+          "created_at": { "type": "string", "description": "RFC3339 timestamp" },
+          "connected_at": { "type": "string", "description": "RFC3339 timestamp when present" },
+          "started_at": { "type": "string", "description": "RFC3339 timestamp when present" },
+          "ended_at": { "type": "string", "description": "RFC3339 timestamp when present" },
+          "summary": { "type": "string" },
+          "transcript": {
+            "$ref": "#/components/schemas/Transcript",
+            "description": "Conversation transcript. Omitted when not stored for the call."
+          },
+          "cost": { "type": "number", "description": "Marked-up total cost for the call." },
+          "tags": { "type": "array", "items": { "type": "string" } },
+          "duration_seconds": {
+            "type": "integer",
+            "description": "Approximate duration from started_at to ended_at when both are set."
+          }
+        }
+      },
+      "PaginationInfo": {
+        "type": "object",
+        "required": ["page", "page_size", "total", "total_pages", "has_next", "has_prev"],
+        "properties": {
+          "page": { "type": "integer" },
+          "page_size": { "type": "integer" },
+          "total": { "type": "integer" },
+          "total_pages": { "type": "integer" },
+          "has_next": { "type": "boolean" },
+          "has_prev": { "type": "boolean" }
+        }
+      },
+      "PaginatedCallsResponse": {
+        "type": "object",
+        "required": ["calls", "pagination"],
+        "properties": {
+          "calls": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Call" }
+          },
+          "pagination": { "$ref": "#/components/schemas/PaginationInfo" }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "description": "Standard error body for most non-2xx JSON responses on this API.",
+        "required": ["error"],
+        "properties": {
+          "error": { "type": "string", "description": "Human-readable message; may include validation detail." }
+        }
+      }
+    }
+  }
+}

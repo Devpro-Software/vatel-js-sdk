@@ -2,12 +2,17 @@ import type {
 	Agent,
 	AgentCreateInput,
 	AgentUpdateInput,
+	Call,
+	DialAgentOptions,
 	DialAgentResponse,
+	DownloadCallRecordingResult,
 	GraphVersion,
 	GraphVersionDetail,
+	ListCallsQuery,
 	LLMStringsResponse,
 	Organization,
 	GenerateSessionTokenOptions,
+	PaginatedCallsResponse,
 	SessionTokenResponse,
 	SipTrunk,
 	SipTrunkAgentAssignment,
@@ -138,6 +143,69 @@ export class Client {
 		return this.delete(`/v1/agents/${encodeURIComponent(id)}`);
 	}
 
+	async listCalls(
+		query?: ListCallsQuery
+	): Promise<{ data?: PaginatedCallsResponse; status: number }> {
+		const q = new URLSearchParams();
+		if (query?.organization_id != null) {
+			q.set("organization_id", query.organization_id);
+		}
+		if (query?.page != null) q.set("page", String(query.page));
+		if (query?.page_size != null) q.set("page_size", String(query.page_size));
+		if (query?.agent_ids != null) q.set("agent_ids", query.agent_ids);
+		if (query?.status != null) q.set("status", query.status);
+		if (query?.source != null) q.set("source", query.source);
+		if (query?.date_from != null) q.set("date_from", query.date_from);
+		if (query?.date_to != null) q.set("date_to", query.date_to);
+		if (query?.outbound != null) q.set("outbound", query.outbound);
+		if (query?.search != null) q.set("search", query.search);
+		if (query?.tag != null) q.set("tag", query.tag);
+		if (query?.outcome != null) q.set("outcome", query.outcome);
+		const qs = q.toString();
+		return this.get<PaginatedCallsResponse>(`/v1/calls${qs ? `?${qs}` : ""}`);
+	}
+
+	async getCall(id: string): Promise<{ data?: Call; status: number }> {
+		return this.get<Call>(`/v1/calls/${encodeURIComponent(id)}`);
+	}
+
+	async downloadCallRecording(callId: string): Promise<DownloadCallRecordingResult> {
+		const token = await this.getToken();
+		const url = new URL(
+			`/v1/calls/${encodeURIComponent(callId)}/recording`,
+			this.baseUrl
+		);
+		const res = await this.fetchFn(url, {
+			method: "GET",
+			headers: {
+				...(token ? { Authorization: `Bearer ${token}` } : {}),
+			},
+		});
+		const status = res.status;
+		if (status === 200) {
+			const arrayBuffer = await res.arrayBuffer();
+			return { status, arrayBuffer };
+		}
+		const text = await res.text();
+		let error: DownloadCallRecordingResult["error"];
+		if (text) {
+			try {
+				const parsed = JSON.parse(text) as unknown;
+				if (
+					parsed &&
+					typeof parsed === "object" &&
+					"error" in parsed &&
+					typeof (parsed as { error: unknown }).error === "string"
+				) {
+					error = { error: (parsed as { error: string }).error };
+				}
+			} catch {
+				/* non-JSON body */
+			}
+		}
+		return { status, error };
+	}
+
 	async listAgentGraphVersions(
 		agentId: string
 	): Promise<{ data?: GraphVersion[]; status: number }> {
@@ -164,14 +232,32 @@ export class Client {
 		);
 	}
 
+	dialAgent(
+		agentId: string,
+		number: string,
+		extra?: Omit<DialAgentOptions, "number" | "destination">
+	): Promise<{ data?: DialAgentResponse; status: number }>;
+	dialAgent(
+		agentId: string,
+		options: DialAgentOptions
+	): Promise<{ data?: DialAgentResponse; status: number }>;
 	async dialAgent(
 		agentId: string,
-		number: string
+		numberOrOptions: string | DialAgentOptions,
+		extra?: Omit<DialAgentOptions, "number" | "destination">
 	): Promise<{ data?: DialAgentResponse; status: number }> {
-		const q = new URLSearchParams({ number });
-		return this.post<DialAgentResponse>(
-			`/v1/agents/${encodeURIComponent(agentId)}/dial?${q}`
-		);
+		const opts: DialAgentOptions =
+			typeof numberOrOptions === "string"
+				? { number: numberOrOptions, ...extra }
+				: numberOrOptions;
+		const q = new URLSearchParams();
+		if (opts.number != null) q.set("number", opts.number);
+		if (opts.destination != null) q.set("destination", opts.destination);
+		if (opts.sipTrunkId != null) q.set("sipTrunkId", opts.sipTrunkId);
+		if (opts.callerId != null) q.set("callerId", opts.callerId);
+		const qs = q.toString();
+		const path = `/v1/agents/${encodeURIComponent(agentId)}/dial${qs ? `?${qs}` : ""}`;
+		return this.post<DialAgentResponse>(path);
 	}
 
 	async listTwilioNumbers(): Promise<{
@@ -275,12 +361,17 @@ export class Client {
 		agentId: string,
 		options?: GenerateSessionTokenOptions
 	): Promise<{ data?: SessionTokenResponse; status: number }> {
-		const body: { agent_id: string; transport?: string } = {
-			agent_id: agentId,
-		};
-		if (options?.transport != null) {
-			body.transport = options.transport;
-		}
+		const body: {
+			agent_id: string;
+			transport?: string;
+			version_id?: string;
+			prompt?: string;
+			first_message?: string;
+		} = { agent_id: agentId };
+		if (options?.transport != null) body.transport = options.transport;
+		if (options?.version_id != null) body.version_id = options.version_id;
+		if (options?.prompt != null) body.prompt = options.prompt;
+		if (options?.first_message != null) body.first_message = options.first_message;
 		return this.post<SessionTokenResponse>("/v1/session-token", body);
 	}
 }

@@ -50,11 +50,13 @@ app.post("/api/session-token", async (req, res) => {
 	});
 
 	const transport = req.body?.transport;
-	const tokenOpts =
-		typeof transport === "string" &&
-			transport.toLowerCase() === TRANSPORT_WEBRTC
-			? { transport: TRANSPORT_WEBRTC }
-			: undefined;
+	const tokenOpts = {
+		first_message: "Hey whats cracking?",
+		prompt: "Your name is john.",
+	};
+	if (typeof transport === "string" && transport.toLowerCase() === TRANSPORT_WEBRTC) {
+		tokenOpts.transport = TRANSPORT_WEBRTC;
+	}
 
 	let tokenRes;
 	try {

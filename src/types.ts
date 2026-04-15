@@ -298,6 +298,130 @@ export interface DialAgentResponse {
 	success: boolean;
 }
 
+export interface DialAgentOptions {
+	number?: string;
+	destination?: string;
+	sipTrunkId?: string;
+	callerId?: string;
+}
+
+export type CallStatus =
+	| "connected"
+	| "started"
+	| "in_progress"
+	| "auth_failed"
+	| "ended";
+
+export type CallSource = "twilio" | "sip" | "simulation" | "api";
+
+export type CallOutcomeFilter =
+	| "transferred"
+	| "ended_by_agent"
+	| "ended_by_user";
+
+export type ContextVariableType = "system" | "input" | "extracted";
+
+export type ContextVariableDataType =
+	| "string"
+	| "number"
+	| "boolean"
+	| "object"
+	| "array";
+
+export interface ContextVariable {
+	name?: string;
+	type?: ContextVariableType;
+	description?: string;
+	value?: unknown;
+	dataType?: ContextVariableDataType;
+	rationale?: string;
+}
+
+export type TranscriptEntryType =
+	| "message"
+	| "tool_call"
+	| "tool_call_output"
+	| "interruption";
+
+export interface TranscriptToolCall {
+	itemId?: string;
+	callId?: string;
+	toolName?: string;
+	arguments?: string;
+	output?: string;
+	startedAt?: string;
+	endedAt?: string;
+}
+
+export interface TranscriptEntry {
+	index?: number;
+	role?: string;
+	message?: string;
+	type?: TranscriptEntryType;
+	toolCall?: TranscriptToolCall;
+	toolCallOutput?: string;
+	createdAt?: string;
+	durationMs?: number;
+	turnId?: string;
+}
+
+export interface Transcript {
+	entries: TranscriptEntry[];
+}
+
+export interface Call {
+	id?: string;
+	agent_id?: string;
+	graph_version_id?: string;
+	organization_id?: string;
+	party_number?: string;
+	status?: CallStatus;
+	source?: CallSource;
+	termination_reason?: string;
+	extracted_variables?: ContextVariable[];
+	outbound?: boolean;
+	outbound_contact_id?: string;
+	outbound_list_run_id?: string;
+	created_at?: string;
+	connected_at?: string;
+	started_at?: string;
+	ended_at?: string;
+	summary?: string;
+	transcript?: Transcript;
+	cost?: number;
+	tags?: string[];
+	duration_seconds?: number;
+}
+
+export interface PaginationInfo {
+	page: number;
+	page_size: number;
+	total: number;
+	total_pages: number;
+	has_next: boolean;
+	has_prev: boolean;
+}
+
+export interface PaginatedCallsResponse {
+	calls: Call[];
+	pagination: PaginationInfo;
+}
+
+export interface ListCallsQuery {
+	organization_id?: string;
+	page?: number;
+	page_size?: number;
+	agent_ids?: string;
+	status?: CallStatus;
+	source?: CallSource;
+	date_from?: string;
+	date_to?: string;
+	outbound?: "true" | "false";
+	search?: string;
+	tag?: string;
+	outcome?: CallOutcomeFilter;
+}
+
 export interface TwilioPhoneNumber {
 	id?: string;
 	phone_number?: string;
@@ -412,6 +536,12 @@ export interface ErrorResponse {
 	error: string;
 }
 
+export interface DownloadCallRecordingResult {
+	status: number;
+	arrayBuffer?: ArrayBuffer;
+	error?: ErrorResponse;
+}
+
 export const TRANSPORT_WEBSOCKET = "websocket" as const;
 export const TRANSPORT_WEBRTC = "webrtc" as const;
 
@@ -421,6 +551,9 @@ export type SessionTokenTransport =
 
 export interface GenerateSessionTokenOptions {
 	transport?: SessionTokenTransport;
+	version_id?: string;
+	prompt?: string;
+	first_message?: string;
 }
 
 export interface SessionTokenResponse {
