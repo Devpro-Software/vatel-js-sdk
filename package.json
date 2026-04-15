@@ -1,6 +1,6 @@
 {
   "name": "@vatel/sdk",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "JavaScript SDK for Call Agent Builder WebSocket and REST APIs",
   "license": "MIT",
   "sideEffects": false,
