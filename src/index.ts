@@ -10,6 +10,7 @@ export {
 export type {
   WebRTCSessionCredentials,
   WebRTCSessionOptions,
+  WebRTCResponseAudioMessage,
 } from "./webrtc-session.js";
 export type { ClientOptions } from "./rest.js";
 export { TRANSPORT_WEBRTC, TRANSPORT_WEBSOCKET } from "./types.js";

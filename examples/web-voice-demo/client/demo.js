@@ -8,6 +8,45 @@ const agentInput = document.getElementById("agentId");
 const btnConnect = document.getElementById("btnConnect");
 const btnDisconnect = document.getElementById("btnDisconnect");
 
+const LS_API_KEY = "vatel_web_voice_demo_api_key";
+const LS_AGENT_ID = "vatel_web_voice_demo_agent_id";
+
+function saveStoredCredentials() {
+	try {
+		const apiKey = apiKeyInput.value.trim();
+		const agentId = agentInput.value.trim();
+		if (apiKey) {
+			localStorage.setItem(LS_API_KEY, apiKey);
+		} else {
+			localStorage.removeItem(LS_API_KEY);
+		}
+		if (agentId) {
+			localStorage.setItem(LS_AGENT_ID, agentId);
+		} else {
+			localStorage.removeItem(LS_AGENT_ID);
+		}
+	} catch (_) {
+		// ignore quota / private mode
+	}
+}
+
+function loadStoredCredentials() {
+	try {
+		const apiKey = localStorage.getItem(LS_API_KEY);
+		const agentId = localStorage.getItem(LS_AGENT_ID);
+		if (apiKey) {
+			apiKeyInput.value = apiKey;
+		}
+		if (agentId) {
+			agentInput.value = agentId;
+		}
+	} catch (_) {
+		// ignore
+	}
+}
+
+loadStoredCredentials();
+
 function log(line) {
 	logEl.textContent += line + "\n";
 	logEl.scrollTop = logEl.scrollHeight;
@@ -176,6 +215,8 @@ async function connect() {
 		return;
 	}
 
+	saveStoredCredentials();
+
 	session = new Session({
 		token,
 		baseUrl: typeof body.apiBase === "string" ? body.apiBase : undefined,
@@ -258,6 +299,11 @@ function disconnect() {
 btnConnect.addEventListener("click", () => connect().catch((e) => log(String(e))));
 btnDisconnect.addEventListener("click", disconnect);
 
+apiKeyInput.addEventListener("change", saveStoredCredentials);
+apiKeyInput.addEventListener("blur", saveStoredCredentials);
+agentInput.addEventListener("change", saveStoredCredentials);
+agentInput.addEventListener("blur", saveStoredCredentials);
+
 fetch("/api/config")
 	.then((r) => r.json())
 	.then((c) => {
@@ -269,6 +315,7 @@ fetch("/api/config")
 
 const webrtcLogEl = document.getElementById("webrtcLog");
 const webrtcStatusEl = document.getElementById("webrtcStatus");
+const webrtcPacketCounterEl = document.getElementById("webrtcPacketCounter");
 const webrtcAudioHost = document.getElementById("webrtcAudioHost");
 const btnWebrtcConnect = document.getElementById("btnWebrtcConnect");
 const btnWebrtcDisconnect = document.getElementById("btnWebrtcDisconnect");
@@ -279,11 +326,21 @@ function wlog(line) {
 }
 
 let webrtcSession = null;
+let webrtcResponseAudioChunks = 0;
+
+function setWebrtcPacketCounterLabel(text) {
+	webrtcPacketCounterEl.textContent =
+		"response_audio chunks (24 kHz PCM frames): " + text;
+}
 
 function setWebrtcUi(connected) {
 	btnWebrtcConnect.disabled = connected;
 	btnWebrtcDisconnect.disabled = !connected;
 	webrtcStatusEl.textContent = connected ? "WebRTC: connected" : "WebRTC: idle";
+	if (!connected) {
+		webrtcResponseAudioChunks = 0;
+		setWebrtcPacketCounterLabel("—");
+	}
 }
 
 async function connectWebrtc() {
@@ -315,9 +372,20 @@ async function connectWebrtc() {
 		return;
 	}
 
+	saveStoredCredentials();
+
 	webrtcAudioHost.replaceChildren();
+	webrtcResponseAudioChunks = 0;
+	setWebrtcPacketCounterLabel("0");
 	webrtcSession = new WebRTCSession({
 		remoteAudioContainer: webrtcAudioHost,
+	});
+
+	webrtcSession.on("response_audio", (msg) => {
+		if (msg.data && msg.data.audio) {
+			webrtcResponseAudioChunks += 1;
+			setWebrtcPacketCounterLabel(String(webrtcResponseAudioChunks));
+		}
 	});
 
 	webrtcSession.on("session_started", (msg) => {

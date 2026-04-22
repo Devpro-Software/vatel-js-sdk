@@ -13,11 +13,17 @@ import {
 
 import type {
 	ClientMessage,
+	ResponseAudioMessage,
 	ToolCallOutputMessage,
 	WebRTCDisconnectedMessage,
 	WebRTCServerMessage,
 } from "./types.js";
 import { parseServerMessage } from "./parse-server-message.js";
+import {
+	createRemoteAudioTap,
+	disposeRemoteAudioTap,
+	type RemoteAudioTap,
+} from "./webrtc-remote-audio-tap.js";
 
 export { ConnectionState, DisconnectReason };
 
@@ -29,9 +35,12 @@ export interface WebRTCSessionOptions {
 	remoteAudioContainer?: HTMLElement;
 }
 
+export type WebRTCResponseAudioMessage = ResponseAudioMessage;
+
 type MessageHandler = (message: WebRTCServerMessage) => void;
 type TypedMessageHandler<T extends WebRTCServerMessage> = (message: T) => void;
 type DisconnectedHandler = (message: WebRTCDisconnectedMessage) => void;
+type ResponseAudioHandler = (message: ResponseAudioMessage) => void;
 
 export interface WebRTCSessionCredentials {
 	token: string;
@@ -42,8 +51,10 @@ export interface WebRTCSessionCredentials {
 /**
  * Browser-only WebRTC session: joins using credentials from your backend,
  * publishes microphone audio, and plays remote audio via received tracks.
- * The `messages` text channel carries session events only (no `response_audio`);
- * agent audio is not delivered as base64 over text.
+ * The `messages` text channel carries session events only (no base64 `response_audio`);
+ * agent audio arrives on remote WebRTC tracks. Use `on("response_audio", ...)` for streaming
+ * decoded agent PCM (same shape as WebSocket sessions: base64 24 kHz mono s16le), independent of the microphone.
+ * Playback uses the remote track element; tapping runs on a cloned track so capture stays reliable.
  * Use `on("disconnected", ...)` when the room session ends (including after `disconnect()` or remote audio unsubscribe).
  */
 export class WebRTCSession {
@@ -51,6 +62,14 @@ export class WebRTCSession {
 	private room: Room | null = null;
 	private readonly messageHandlers = new Set<MessageHandler>();
 	private readonly disconnectedHandlers = new Set<DisconnectedHandler>();
+	private readonly responseAudioHandlers = new Set<ResponseAudioHandler>();
+	private remoteAgentAudioSub: {
+		track: RemoteTrack;
+		publication: RemoteTrackPublication;
+	} | null = null;
+	private remoteAudioTap: RemoteAudioTap | null = null;
+	private remoteAudioSyncRunning = false;
+	private remoteAudioSyncPending = false;
 
 	private detachFromRoom(r: Room): void {
 		r.off(RoomEvent.TrackSubscribed, this.onTrackSubscribed);
@@ -61,6 +80,16 @@ export class WebRTCSession {
 	}
 
 	private notifyDisconnected(reason?: DisconnectReason): void {
+		const turnId = this.remoteAgentAudioSub?.publication.trackSid ?? "";
+		disposeRemoteAudioTap(
+			this.remoteAudioTap,
+			true,
+			this.responseAudioHandlers,
+			turnId
+		);
+		this.remoteAudioTap = null;
+		this.remoteAgentAudioSub = null;
+
 		const message: WebRTCDisconnectedMessage = {
 			type: "disconnected",
 			...(reason !== undefined ? { data: { reason } } : {}),
@@ -69,6 +98,7 @@ export class WebRTCSession {
 			h(message);
 		}
 		this.messageHandlers.clear();
+		this.responseAudioHandlers.clear();
 	}
 
 	private readonly onRoomDisconnected = (reason?: DisconnectReason) => {
@@ -89,11 +119,8 @@ export class WebRTCSession {
 		if (track.kind !== Track.Kind.Audio) {
 			return;
 		}
-		const element = track.attach() as HTMLAudioElement;
-		const container = this.options.remoteAudioContainer;
-		if (container) {
-			container.appendChild(element);
-		}
+		this.remoteAgentAudioSub = { track, publication };
+		void this.scheduleRemoteAgentAudioSync();
 	};
 
 	private readonly onTrackUnsubscribed = (
@@ -103,6 +130,17 @@ export class WebRTCSession {
 	) => {
 		if (track.kind !== Track.Kind.Audio) {
 			return;
+		}
+		if (this.remoteAgentAudioSub?.track === track) {
+			const turnId = this.remoteAgentAudioSub.publication.trackSid;
+			disposeRemoteAudioTap(
+				this.remoteAudioTap,
+				true,
+				this.responseAudioHandlers,
+				turnId
+			);
+			this.remoteAudioTap = null;
+			this.remoteAgentAudioSub = null;
 		}
 		track.detach();
 		void this.disconnect();
@@ -122,6 +160,80 @@ export class WebRTCSession {
 		this.options = options;
 	}
 
+	private scheduleRemoteAgentAudioSync(): void {
+		void this.runRemoteAgentAudioSync();
+	}
+
+	private async runRemoteAgentAudioSync(): Promise<void> {
+		if (this.remoteAudioSyncRunning) {
+			this.remoteAudioSyncPending = true;
+			return;
+		}
+		this.remoteAudioSyncRunning = true;
+		try {
+			do {
+				this.remoteAudioSyncPending = false;
+				await this.applyRemoteAgentAudioOutputOnce();
+			} while (this.remoteAudioSyncPending);
+		} finally {
+			this.remoteAudioSyncRunning = false;
+		}
+	}
+
+	private async applyRemoteAgentAudioOutputOnce(): Promise<void> {
+		const sub = this.remoteAgentAudioSub;
+		if (!sub || sub.track.kind !== Track.Kind.Audio) {
+			return;
+		}
+		const { track, publication } = sub;
+		const sid = publication.trackSid;
+
+		if (this.responseAudioHandlers.size > 0) {
+			if (
+				this.remoteAudioTap &&
+				this.remoteAudioTap.mediaStreamTrackId === track.mediaStreamTrack.id
+			) {
+				return;
+			}
+			disposeRemoteAudioTap(
+				this.remoteAudioTap,
+				false,
+				this.responseAudioHandlers,
+				sid
+			);
+			this.remoteAudioTap = null;
+			try {
+				this.remoteAudioTap = await createRemoteAudioTap(
+					track.mediaStreamTrack,
+					sid,
+					this.responseAudioHandlers
+				);
+			} catch {
+				this.remoteAudioTap = null;
+			}
+			const element = track.attach() as HTMLAudioElement;
+			const container = this.options.remoteAudioContainer;
+			if (container) {
+				container.appendChild(element);
+			}
+			return;
+		}
+
+		disposeRemoteAudioTap(
+			this.remoteAudioTap,
+			false,
+			this.responseAudioHandlers,
+			sid
+		);
+		this.remoteAudioTap = null;
+
+		const element = track.attach() as HTMLAudioElement;
+		const container = this.options.remoteAudioContainer;
+		if (container) {
+			container.appendChild(element);
+		}
+	}
+
 	get connectionState(): ConnectionState {
 		return this.room?.state ?? ConnectionState.Disconnected;
 	}
@@ -131,14 +243,27 @@ export class WebRTCSession {
 		handler: TypedMessageHandler<Extract<WebRTCServerMessage, { type: T }>>
 	): () => void;
 	on(type: "disconnected", handler: DisconnectedHandler): () => void;
+	on(type: "response_audio", handler: ResponseAudioHandler): () => void;
 	on(
-		type: WebRTCServerMessage["type"] | "disconnected",
-		handler: TypedMessageHandler<WebRTCServerMessage> | DisconnectedHandler
+		type: WebRTCServerMessage["type"] | "disconnected" | "response_audio",
+		handler:
+			| TypedMessageHandler<WebRTCServerMessage>
+			| DisconnectedHandler
+			| ResponseAudioHandler
 	): () => void {
 		if (type === "disconnected") {
 			const h = handler as DisconnectedHandler;
 			this.disconnectedHandlers.add(h);
 			return () => this.disconnectedHandlers.delete(h);
+		}
+		if (type === "response_audio") {
+			const h = handler as ResponseAudioHandler;
+			this.responseAudioHandlers.add(h);
+			void this.scheduleRemoteAgentAudioSync();
+			return () => {
+				this.responseAudioHandlers.delete(h);
+				void this.scheduleRemoteAgentAudioSync();
+			};
 		}
 		const wrapper: MessageHandler = (msg) => {
 			if (msg.type === type) {
