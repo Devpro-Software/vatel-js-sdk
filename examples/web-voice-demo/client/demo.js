@@ -367,7 +367,8 @@ async function connectWebrtc() {
 		return;
 	}
 
-	if (!body.token || typeof body.token !== "string") {
+	const webrtcToken = body.webrtc_token ?? body.token;
+	if (!webrtcToken || typeof webrtcToken !== "string") {
 		wlog("No token returned. Check your account and agent ID.");
 		return;
 	}
@@ -432,7 +433,7 @@ async function connectWebrtc() {
 
 	try {
 		await webrtcSession.connect({
-			token: body.token,
+			token: webrtcToken,
 			url: typeof body.url === "string" ? body.url : undefined,
 			room: body.room,
 		});

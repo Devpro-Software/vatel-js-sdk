@@ -1436,7 +1436,7 @@
       "post": {
         "tags": ["session"],
         "summary": "Generate session token",
-        "description": "Issues a short-lived credential for connecting a voice session to an agent in your organization. Send `agent_id` and optional `transport`: `websocket` (default when omitted) for the platform WebSocket flow, or `webrtc` for a WebRTC media room. Optional `version_id` pins a published agent version (UUID). Optional `prompt` and `first_message` override session parameters and are embedded in WebRTC tokens as participant attributes when using `webrtc`.",
+        "description": "Short-lived session JWT in `token` to connect to an agent. Send `agent_id` and optional `transport`: `websocket` (default) or `webrtc` (adds `webrtc_token`, `room`, `identity`, `url`). Optional: `version_id`, `prompt`, `first_message`, and `chat` to include the `chat` scope alongside `voice` in the JWT.",
         "operationId": "generateSessionToken",
         "requestBody": {
           "required": true,
@@ -1448,7 +1448,7 @@
         },
         "responses": {
           "200": {
-            "description": "Credential payload. Always includes `token`. For `webrtc` transport, the server also returns `room`, `identity`, and `url`.",
+            "description": "Session credentials (`token`; with `webrtc`, also `webrtc_token`, `room`, `identity`, `url`).",
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/SessionTokenResponse" }
@@ -1989,17 +1989,21 @@
           "prompt": {
             "type": "string",
             "description": "Optional system prompt override for this session (WebSocket session parameters and WebRTC JWT participant attributes when applicable)."
+          },
+          "chat": {
+            "type": "boolean",
+            "description": "When true, the `token` includes the `chat` scope in addition to `voice`, authorizing the chat API."
           }
         }
       },
       "SessionTokenResponse": {
         "type": "object",
-        "description": "With `websocket` transport, only `token` is set. With `webrtc`, `token` is the media-room access JWT (microphone subscribe and publish; participant attributes include `agent_id` and, when provided, `version_id`, `prompt`, and `first_message`), and `room`, `identity`, and `url` are server-assigned.",
+        "description": "Session JWT in `token`; for `webrtc`, also `webrtc_token`, `room`, `identity`, and `url`.",
         "required": ["token"],
         "properties": {
           "token": {
             "type": "string",
-            "description": "Token for the WebSocket or WebRTC client flow."
+            "description": "Platform session JWT. `scopes` claim includes `voice`, and `chat` when chat was requested. Use for WebSocket sessions and as `Authorization: Bearer` for the chat endpoint."
           },
           "room": {
             "type": "string",
@@ -2012,6 +2016,10 @@
           "url": {
             "type": "string",
             "description": "WebSocket URL of the media server. Present only when `transport` was `webrtc`."
+          },
+          "webrtc_token": {
+            "type": "string",
+            "description": "LiveKit media-room access JWT (microphone subscribe and publish; participant attributes include `agent_id` and, when provided, `version_id`, `prompt`, and `first_message`). Present only when `transport` was `webrtc`."
           }
         }
       },

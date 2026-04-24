@@ -554,6 +554,7 @@ export interface GenerateSessionTokenOptions {
 	version_id?: string;
 	prompt?: string;
 	first_message?: string;
+	chat?: boolean;
 }
 
 export interface SessionTokenResponse {
@@ -561,4 +562,5 @@ export interface SessionTokenResponse {
 	room?: string;
 	identity?: string;
 	url?: string;
+	webrtc_token?: string;
 }

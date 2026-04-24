@@ -367,11 +367,13 @@ export class Client {
 			version_id?: string;
 			prompt?: string;
 			first_message?: string;
+			chat?: boolean;
 		} = { agent_id: agentId };
 		if (options?.transport != null) body.transport = options.transport;
 		if (options?.version_id != null) body.version_id = options.version_id;
 		if (options?.prompt != null) body.prompt = options.prompt;
 		if (options?.first_message != null) body.first_message = options.first_message;
+		if (options?.chat != null) body.chat = options.chat;
 		return this.post<SessionTokenResponse>("/v1/session-token", body);
 	}
 }

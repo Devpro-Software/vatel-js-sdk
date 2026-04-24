@@ -84,6 +84,9 @@ app.post("/api/session-token", async (req, res) => {
 	}
 
 	const payload = { token, apiBase: API_BASE };
+	if (typeof data?.webrtc_token === "string") {
+		payload.webrtc_token = data.webrtc_token;
+	}
 	if (typeof data?.url === "string") {
 		payload.url = data.url;
 	}
