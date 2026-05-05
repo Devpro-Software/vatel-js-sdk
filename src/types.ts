@@ -21,7 +21,7 @@ export interface SessionStartedMessage {
 export interface ResponseAudioData {
 	turn_id: string;
 	audio: string;
-	is_final?: boolean;
+	is_final: boolean;
 }
 
 export interface ResponseAudioMessage {
@@ -32,6 +32,7 @@ export interface ResponseAudioMessage {
 export interface ResponseTextData {
 	turn_id: string;
 	text: string;
+	is_final: boolean;
 }
 
 export interface ResponseTextMessage {
@@ -41,6 +42,8 @@ export interface ResponseTextMessage {
 
 export interface InputAudioTranscriptData {
 	transcript: string;
+	turn_id?: string;
+	is_final: boolean;
 }
 
 export interface InputAudioTranscriptMessage {

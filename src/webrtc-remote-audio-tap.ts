@@ -169,7 +169,7 @@ export async function createRemoteAudioTap(
 		const audio = pcm16ToBase64(pcm);
 		const msg: ResponseAudioMessage = {
 			type: "response_audio",
-			data: { turn_id: turnId, audio },
+			data: { turn_id: turnId, audio, is_final: false },
 		};
 		for (const h of handlers) {
 			h(msg);
